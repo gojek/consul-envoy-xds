@@ -1,0 +1,18 @@
+package: consul-envoy-xds
+import:
+- package: github.com/satori/go.uuid
+  version: ^1.1.0
+- package: github.com/hashicorp/consul
+  version: ^1.0.2
+- package: github.com/envoyproxy/go-control-plane
+- package: google.golang.org/grpc
+  version: ^1.8.2
+- package: github.com/gogo/protobuf
+  version: ^0.5.0
+- package: github.com/stretchr/testify
+  version: ^1.1.4
+  subpackages:
+  - gogoproto
+- package: github.com/gojek-engineering/goconfig
+- package: github.com/newrelic/go-agent
+  version: ^1.11.0
