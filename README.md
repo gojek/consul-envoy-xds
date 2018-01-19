@@ -9,20 +9,41 @@ If you are using Consul for service discovery and would like to use Envoy withou
 ## Building it
 
 1. We use Glide for dependency management, instructions to install it can be found [here](http://glide.sh/).
-2. Fetch dev dependencies
+2. Fetch dev dependencies and create dev config (application.yml) from sample.
 
-```make setup```
+   ```
+   make setup
+```
 
 3. Run make to fetch dependencies, run the tests and build.
 
-```make```
-
+    ```
+    make
+```
 4. Run it.
 
-```./out/consul-envoy-xds```
+    ```
+    ./out/consul-envoy-xds
+```
 
-How to contribute to it
-License
+## Using it
+
+Locally, the service can be configured by setting the environment variables in an `application.yml` file. When this file is unavailable, configuration is loaded from the environment variables. This is the recommended way to load configuration on production.
+
+```
+PORT: 8053
+LOG_LEVEL: DEBUG
+CONSUL_AGENT_PORT: 8500
+CONSUL_CLIENT_HOST: localhost
+CONSUL_DC: dc1
+CONSUL_TOKEN: ""
+WATCHED_SERVICE: foo-service
+```
+
+Example entry point on production environments.
+
+`env PORT=8053 LOG_LEVEL=INFO CONSUL_AGENT_PORT=8500 CONSUL_CLIENT_HOST=localhost CONSUL_DC=dc1 CONSUL_TOKEN="" WATCHED_SERVICE=foo-service ./consul-envoy-xds`
+
 
 #### Sample Config:
 
