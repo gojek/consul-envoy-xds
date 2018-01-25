@@ -1,10 +1,10 @@
 # consul-envoy-xds
 
- consul-envoy-xds is an implementation of an Envoy Control Plane/xDiscovery Service via the [Envoy data plane API](https://github.com/envoyproxy/data-plane-api). It makes services registered with Consul available as endpoints through [EDS](https://www.envoyproxy.io/docs/envoy/latest/api-v2/eds.proto).
+consul-envoy-xds is an implementation of an Envoy Control Plane/xDiscovery Service via the [Envoy data plane API](https://github.com/envoyproxy/data-plane-api). It makes services registered with Consul available as endpoints through [EDS](https://www.envoyproxy.io/docs/envoy/latest/api-v2/eds.proto).
 
-xDS is the set of APIs that control the Envoy dynamic configuration. A longer explanation is available here [XDS Protocol](https://github.com/envoyproxy/data-planeb-api/blob/master/XDS_PROTOCOL.md). Currently consul-envoy-xds implements only EDS, however other xDS are planned. In this implementation the streaming version is available but the sync(Unary call) one is WIP. 
+xDS is the set of APIs that control the Envoy dynamic configuration. A longer explanation is available on the [XDS Protocol](https://github.com/envoyproxy/data-planeb-api/blob/master/XDS_PROTOCOL.md) page. Currently consul-envoy-xds implements only EDS, however other xDS are planned. In this implementation, the streaming version is available but the sync (Unary call) one is WIP. 
 
-If you are using Consul for service discovery and would like to use Envoy without manual configuration consul-envoy-xds can be used. It uses [Consul Watches](https://www.consul.io/docs/agent/watches.html) and any changes to endpoints are streamed to Envoy via the Control Plane.
+If you are using Consul for service discovery and would like to use Envoy without manual configuration, consul-envoy-xds can be used. It uses [Consul Watches](https://www.consul.io/docs/agent/watches.html) and any changes to endpoints are streamed to Envoy via the Control Plane.
 
 ## Building it
 
@@ -13,18 +13,17 @@ If you are using Consul for service discovery and would like to use Envoy withou
 
    ```
    make setup
-```
-
-3. Run make to fetch dependencies, run the tests and build.
+   ```
+3. Run `make` to fetch dependencies, run the tests and build.
 
     ```
     make
-```
+    ```
 4. Run it.
 
     ```
     ./out/consul-envoy-xds
-```
+    ```
 
 ## Using it
 
@@ -47,7 +46,7 @@ Example entry point on production environments.
 
 #### Sample Config:
 
-Replace $XDS\_IP and $XDS\_PORT with wherever you're running consul-envoy-xds. Refer to [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api) for other options.
+Replace `$XDS\_IP` and `$XDS\_PORT` with wherever you're running consul-envoy-xds. Refer to [Envoy documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api) for other options.
 
 ```yaml
 static_resources:
