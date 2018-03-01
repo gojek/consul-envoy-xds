@@ -1,8 +1,9 @@
-package eds_test
+package stream_test
 
 import (
-	"github.com/gojektech/consul-envoy-xds/eds"
 	"testing"
+
+	"github.com/gojektech/consul-envoy-xds/stream"
 
 	cp "github.com/envoyproxy/go-control-plane/api"
 	"github.com/gogo/protobuf/proto"
@@ -11,9 +12,9 @@ import (
 )
 
 func TestShouldShouldStreamDiscoveryResponse(t *testing.T) {
-	mockStream := &eds.MockEDSStream{}
+	mockStream := &stream.MockXDSStream{}
 	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Return(nil)
-	drs := eds.NewDiscoveryResponseStream(mockStream)
+	drs := stream.NewDiscoveryResponseStream(mockStream)
 	cla := &cp.ClusterLoadAssignment{}
 	drs.Send(cla)
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment", mockStream.Capture().TypeUrl)
@@ -27,9 +28,9 @@ func TestShouldShouldStreamDiscoveryResponse(t *testing.T) {
 }
 
 func TestShouldShouldStreamDiscoveryResponseWithIncrementingNonceAndVersion(t *testing.T) {
-	mockStream := &eds.MockEDSStream{}
+	mockStream := &stream.MockXDSStream{}
 	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(3).Return(nil)
-	drs := eds.NewDiscoveryResponseStream(mockStream)
+	drs := stream.NewDiscoveryResponseStream(mockStream)
 	drs.Send(&cp.ClusterLoadAssignment{})
 	assert.Equal(t, "0", mockStream.Capture().Nonce)
 	assert.Equal(t, "0", mockStream.Capture().VersionInfo)

@@ -2,6 +2,7 @@ package eds
 
 import (
 	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojektech/consul-envoy-xds/stream"
 
 	cp "github.com/envoyproxy/go-control-plane/api"
 	"golang.org/x/net/context"
@@ -16,10 +17,10 @@ type ConsulEDS struct {
 }
 
 //StreamEndpoints is a grpc streaming api for streaming Discovery responses
-func (e *ConsulEDS) StreamEndpoints(stream cp.EndpointDiscoveryService_StreamEndpointsServer) error {
+func (e *ConsulEDS) StreamEndpoints(s cp.EndpointDiscoveryService_StreamEndpointsServer) error {
 	subscription := e.hub.Subscribe()
 	subscription.Accept(e.watchedService.CLA())
-	return NewSubscriptionStream(stream, subscription).Stream()
+	return stream.NewSubscriptionStream(s, subscription).Stream()
 }
 
 func (e *ConsulEDS) StreamLoadStats(stream cp.EndpointDiscoveryService_StreamLoadStatsServer) error {

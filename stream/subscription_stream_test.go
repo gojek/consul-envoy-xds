@@ -1,10 +1,11 @@
-package eds_test
+package stream_test
 
 import (
-	"github.com/gojektech/consul-envoy-xds/eds"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
 	"testing"
 	"time"
+
+	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojektech/consul-envoy-xds/stream"
 
 	cp "github.com/envoyproxy/go-control-plane/api"
 	uuid "github.com/satori/go.uuid"
@@ -15,12 +16,12 @@ import (
 
 func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	mockStream := &eds.MockEDSStream{Ctx: ctx}
+	mockStream := &stream.MockXDSStream{Ctx: ctx}
 
 	claChan := make(pubsub.CLAChan, 1000)
 	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Cla: claChan, OnClose: func(subID uuid.UUID) {}}
 
-	subscriptionStream := eds.NewSubscriptionStream(mockStream, subscription)
+	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
 	done := make(chan bool, 42)
 	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(42).Run(func(mock.Arguments) {
 		done <- true
@@ -52,7 +53,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 
 func TestShouldCloseSubscriptionOnInterrupted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	mockStream := &eds.MockEDSStream{Ctx: ctx}
+	mockStream := &stream.MockXDSStream{Ctx: ctx}
 
 	claChan := make(pubsub.CLAChan, 1000)
 	onCloseCalled := false
@@ -61,7 +62,7 @@ func TestShouldCloseSubscriptionOnInterrupted(t *testing.T) {
 		onCloseCalled = true
 	}}
 
-	subscriptionStream := eds.NewSubscriptionStream(mockStream, subscription)
+	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
 	go subscriptionStream.Stream()
 	cancel()
 

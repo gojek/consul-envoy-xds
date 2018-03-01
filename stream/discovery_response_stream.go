@@ -1,4 +1,4 @@
-package eds
+package stream
 
 import (
 	"strconv"
@@ -8,13 +8,13 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-//DiscoveryResponseStream is a  EDS Stream wrapper and wraps grpc stream API and pipes DiscoveryResponse events to it.
+//DiscoveryResponseStream is an xDS Stream wrapper and wraps grpc stream API and pipes DiscoveryResponse events to it.
 type DiscoveryResponseStream interface {
 	Send(*cp.ClusterLoadAssignment) error
 }
 
 type responseStream struct {
-	stream  cp.EndpointDiscoveryService_StreamEndpointsServer
+	stream  DiscoveryStream
 	nonce   int
 	version int
 }
@@ -42,6 +42,6 @@ func (streamer *responseStream) Send(c *cp.ClusterLoadAssignment) error {
 }
 
 //NewDiscoveryResponseStream creates a DiscoveryResponseStream
-func NewDiscoveryResponseStream(stream cp.EndpointDiscoveryService_StreamEndpointsServer) DiscoveryResponseStream {
+func NewDiscoveryResponseStream(stream DiscoveryStream) DiscoveryResponseStream {
 	return &responseStream{stream: stream, nonce: 0, version: 0}
 }
