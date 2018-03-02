@@ -14,7 +14,7 @@ type DiscoveryResponseStream interface {
 }
 
 type responseStream struct {
-	stream  DiscoveryStream
+	stream  cp.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 	nonce   int
 	version int
 }
@@ -42,6 +42,6 @@ func (streamer *responseStream) Send(c *cp.ClusterLoadAssignment) error {
 }
 
 //NewDiscoveryResponseStream creates a DiscoveryResponseStream
-func NewDiscoveryResponseStream(stream DiscoveryStream) DiscoveryResponseStream {
+func NewDiscoveryResponseStream(stream cp.AggregatedDiscoveryService_StreamAggregatedResourcesServer) DiscoveryResponseStream {
 	return &responseStream{stream: stream, nonce: 0, version: 0}
 }

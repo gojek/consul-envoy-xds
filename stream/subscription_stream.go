@@ -1,6 +1,7 @@
 package stream
 
 import (
+	cp "github.com/envoyproxy/go-control-plane/api"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 )
 
@@ -10,7 +11,7 @@ type SubscriptionStream interface {
 }
 
 type subscriptionStream struct {
-	stream       DiscoveryStream
+	stream       cp.AggregatedDiscoveryService_StreamAggregatedResourcesServer
 	subscription *pubsub.Subscription
 }
 
@@ -39,6 +40,6 @@ func (es *subscriptionStream) Stream() error {
 	return nil
 }
 
-func NewSubscriptionStream(stream DiscoveryStream, subscription *pubsub.Subscription) SubscriptionStream {
+func NewSubscriptionStream(stream cp.AggregatedDiscoveryService_StreamAggregatedResourcesServer, subscription *pubsub.Subscription) SubscriptionStream {
 	return &subscriptionStream{stream: stream, subscription: subscription}
 }
