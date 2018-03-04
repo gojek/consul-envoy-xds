@@ -22,9 +22,9 @@ func (es *subscriptionStream) Stream() error {
 		responseStream := NewDiscoveryResponseStream(es.stream)
 		for {
 			select {
-			case cla := <-es.subscription.Cla:
-				if cla != nil {
-					responseStream.Send(cla)
+			case e := <-es.subscription.Events:
+				if e != nil {
+					responseStream.Send(e.CLA)
 				}
 			}
 		}

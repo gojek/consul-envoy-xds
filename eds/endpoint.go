@@ -2,6 +2,7 @@ package eds
 
 import (
 	"github.com/gojektech/consul-envoy-xds/agent"
+	"github.com/gojektech/consul-envoy-xds/pubsub"
 
 	cp "github.com/envoyproxy/go-control-plane/api"
 	"github.com/hashicorp/consul/watch"
@@ -10,7 +11,7 @@ import (
 //Endpoint is an agent catalog service
 type Endpoint interface {
 	CLA() *cp.ClusterLoadAssignment
-	WatchPlan(publish func(*cp.ClusterLoadAssignment)) (*watch.Plan, error)
+	WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error)
 }
 
 type service struct {
@@ -43,7 +44,7 @@ func (s *service) CLA() *cp.ClusterLoadAssignment {
 	return &cp.ClusterLoadAssignment{Endpoints: s.getLocalityEndpoints(), ClusterName: s.clusterName(), Policy: s.claPolicy()}
 }
 
-func (s *service) WatchPlan(publish func(*cp.ClusterLoadAssignment)) (*watch.Plan, error) {
+func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 	plan, err := watch.Parse(map[string]interface{}{
 		"type":       "service",
 		"service":    s.clusterName(),
@@ -55,7 +56,7 @@ func (s *service) WatchPlan(publish func(*cp.ClusterLoadAssignment)) (*watch.Pla
 		return nil, err
 	}
 	plan.Handler = func(idx uint64, data interface{}) {
-		publish(s.CLA())
+		publish(&pubsub.Event{s.CLA(), &cp.Cluster{}})
 	}
 	return plan, nil
 }

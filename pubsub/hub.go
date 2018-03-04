@@ -9,11 +9,17 @@ import (
 
 type Hub interface {
 	Subscribe() *Subscription
-	Publish(assignment *cp.ClusterLoadAssignment)
+	Publish(event *Event)
 	Size() int
 }
 
 type CLAChan chan *cp.ClusterLoadAssignment
+type EventChan chan *Event
+
+type Event struct {
+	CLA     *cp.ClusterLoadAssignment
+	Cluster *cp.Cluster
+}
 
 type hub struct {
 	subscriptions sync.Map
@@ -21,7 +27,7 @@ type hub struct {
 
 func (h *hub) Subscribe() *Subscription {
 	id := uuid.NewV4()
-	subs := &Subscription{ID: id, Cla: make(CLAChan, 1000), OnClose: func(subID uuid.UUID) {
+	subs := &Subscription{ID: id, Events: make(EventChan, 1000), OnClose: func(subID uuid.UUID) {
 		h.subscriptions.Delete(subID)
 	}}
 	h.subscriptions.Store(id, subs)
@@ -29,9 +35,9 @@ func (h *hub) Subscribe() *Subscription {
 	return subs
 }
 
-func (h *hub) Publish(assignment *cp.ClusterLoadAssignment) {
+func (h *hub) Publish(event *Event) {
 	h.subscriptions.Range(func(id, subscription interface{}) bool {
-		subscription.(*Subscription).Accept(assignment)
+		subscription.(*Subscription).Accept(event)
 		return true
 	})
 }

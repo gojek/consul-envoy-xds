@@ -10,11 +10,13 @@ import (
 func TestShouldAddSubscriptionToListOfSubscribers(t *testing.T) {
 	hub := NewHub()
 	subscription := hub.Subscribe()
-	assignment := &cp.ClusterLoadAssignment{}
-	hub.Publish(assignment)
-	a := <-subscription.Cla
+	cla := &cp.ClusterLoadAssignment{}
+	cluster := &cp.Cluster{}
+	event := &Event{cla, cluster}
+	hub.Publish(event)
+	a := <-subscription.Events
 	assert.Equal(t, 1, hub.Size())
-	assert.Equal(t, assignment, a)
+	assert.Equal(t, event, a)
 }
 
 func TestShouldRemoveFromListOfSubscribersOnUnsubscribe(t *testing.T) {

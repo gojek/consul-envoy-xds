@@ -18,8 +18,8 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mockStream := &stream.MockXDSStream{Ctx: ctx}
 
-	claChan := make(pubsub.CLAChan, 1000)
-	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Cla: claChan, OnClose: func(subID uuid.UUID) {}}
+	eventsChan := make(pubsub.EventChan, 1000)
+	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Events: eventsChan, OnClose: func(subID uuid.UUID) {}}
 
 	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
 	done := make(chan bool, 42)
@@ -29,7 +29,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 
 	numberOfReplies := 42
 	for i := 1; i <= numberOfReplies; i++ {
-		subscription.Accept(&cp.ClusterLoadAssignment{})
+		subscription.Accept(&pubsub.Event{&cp.ClusterLoadAssignment{}, &cp.Cluster{}})
 	}
 	timeout := make(chan bool, 1)
 	go func() {
@@ -55,10 +55,10 @@ func TestShouldCloseSubscriptionOnInterrupted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mockStream := &stream.MockXDSStream{Ctx: ctx}
 
-	claChan := make(pubsub.CLAChan, 1000)
+	eventsChan := make(pubsub.EventChan, 1000)
 	onCloseCalled := false
 
-	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Cla: claChan, OnClose: func(subID uuid.UUID) {
+	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Events: eventsChan, OnClose: func(subID uuid.UUID) {
 		onCloseCalled = true
 	}}
 
@@ -66,7 +66,7 @@ func TestShouldCloseSubscriptionOnInterrupted(t *testing.T) {
 	go subscriptionStream.Stream()
 	cancel()
 
-	_, channelOpen := (<-subscription.Cla)
+	_, channelOpen := (<-subscription.Events)
 	assert.False(t, channelOpen)
 	assert.True(t, onCloseCalled)
 }

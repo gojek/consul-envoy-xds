@@ -1,8 +1,10 @@
 package eds_test
 
 import (
-	"github.com/gojektech/consul-envoy-xds/eds"
 	"testing"
+
+	"github.com/gojektech/consul-envoy-xds/eds"
+	"github.com/gojektech/consul-envoy-xds/pubsub"
 
 	cp "github.com/envoyproxy/go-control-plane/api"
 	"github.com/hashicorp/consul/api"
@@ -49,7 +51,7 @@ func TestShouldSetAgentBasedWatcherParamsInEndpointWatchPlan(t *testing.T) {
 	endpoint := eds.NewEndpoint("foo-service", agent)
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 
-	plan, _ := endpoint.WatchPlan(func(*cp.ClusterLoadAssignment) {
+	plan, _ := endpoint.WatchPlan(func(*pubsub.Event) {
 	})
 
 	assert.Equal(t, "dc-foo-01", plan.Datacenter)
@@ -65,9 +67,9 @@ func TestShouldSetEndpointWatchPlanHandler(t *testing.T) {
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 	var handlerCalled bool
 	var capture *cp.ClusterLoadAssignment
-	plan, _ := endpoint.WatchPlan(func(cla *cp.ClusterLoadAssignment) {
+	plan, _ := endpoint.WatchPlan(func(event *pubsub.Event) {
 		handlerCalled = true
-		capture = cla
+		capture = event.CLA
 	})
 
 	plan.Handler(112345, nil)
