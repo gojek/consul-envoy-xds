@@ -22,13 +22,13 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	subscription := &pubsub.Subscription{ID: uuid.NewV4(), Events: eventsChan, OnClose: func(subID uuid.UUID) {}}
 
 	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
-	done := make(chan bool, 42)
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(42).Run(func(mock.Arguments) {
+	n := 42
+	done := make(chan bool, n)
+	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(n * 2).Run(func(mock.Arguments) {
 		done <- true
 	}).Return(nil)
 
-	numberOfReplies := 42
-	for i := 1; i <= numberOfReplies; i++ {
+	for i := 1; i <= n; i++ {
 		subscription.Accept(&pubsub.Event{&cp.ClusterLoadAssignment{}, &cp.Cluster{}})
 	}
 	timeout := make(chan bool, 1)
@@ -37,7 +37,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 		timeout <- true
 	}()
 	go subscriptionStream.Stream()
-	for i := 1; i <= numberOfReplies; i++ {
+	for i := 1; i <= n*2; i++ {
 		select {
 		case <-done:
 			t.Logf("%d was done\n", i)

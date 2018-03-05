@@ -8,9 +8,18 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
+type EndpointDiscoveryResponseStream interface {
+	SendEDS(*cp.ClusterLoadAssignment) error
+}
+
+type ClusterDiscoveryResponseStream interface {
+	SendCDS(*cp.Cluster) error
+}
+
 //DiscoveryResponseStream is an xDS Stream wrapper and wraps grpc stream API and pipes DiscoveryResponse events to it.
 type DiscoveryResponseStream interface {
-	Send(*cp.ClusterLoadAssignment) error
+	ClusterDiscoveryResponseStream
+	EndpointDiscoveryResponseStream
 }
 
 type responseStream struct {
@@ -20,7 +29,7 @@ type responseStream struct {
 }
 
 //Send a CLA on current stream
-func (streamer *responseStream) Send(c *cp.ClusterLoadAssignment) error {
+func (streamer *responseStream) SendEDS(c *cp.ClusterLoadAssignment) error {
 	data, err := proto.Marshal(c)
 	if err != nil {
 		return err
@@ -34,6 +43,28 @@ func (streamer *responseStream) Send(c *cp.ClusterLoadAssignment) error {
 		VersionInfo: strconv.FormatInt(int64(streamer.version), 10),
 		Resources:   resources,
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment",
+		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
+	})
+	streamer.version++
+	streamer.nonce++
+	return nil
+}
+
+//Send a Cluster on current stream
+func (streamer *responseStream) SendCDS(c *cp.Cluster) error {
+	data, err := proto.Marshal(c)
+	if err != nil {
+		return err
+	}
+	resources := []*types.Any{{
+		TypeUrl: "type.googleapis.com/envoy.api.v2.Cluster",
+		Value:   data,
+	}}
+
+	streamer.stream.Send(&cp.DiscoveryResponse{
+		VersionInfo: strconv.FormatInt(int64(streamer.version), 10),
+		Resources:   resources,
+		TypeUrl:     "type.googleapis.com/envoy.api.v2.Cluster",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
 	})
 	streamer.version++

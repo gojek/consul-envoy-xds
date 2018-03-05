@@ -24,7 +24,8 @@ func (es *subscriptionStream) Stream() error {
 			select {
 			case e := <-es.subscription.Events:
 				if e != nil {
-					responseStream.Send(e.CLA)
+					responseStream.SendEDS(e.CLA)
+					responseStream.SendCDS(e.Cluster)
 				}
 			}
 		}
