@@ -4,7 +4,7 @@ import (
 	"github.com/gojektech/consul-envoy-xds/eds"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/hashicorp/consul/watch"
 )
 
@@ -18,7 +18,7 @@ type ServiceWatch struct {
 
 //PublishCLA publishes a cluster load assignment to hub
 func (sw *ServiceWatch) PublishCLA(idx uint64, data interface{}) {
-	sw.hub.Publish(&pubsub.Event{sw.service.CLA(), &cp.Cluster{}})
+	sw.hub.Publish(&pubsub.Event{sw.service.CLA(), []*cp.Cluster{&cp.Cluster{}}, []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
 }
 
 // NewWatch creates a new service watch

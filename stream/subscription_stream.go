@@ -1,7 +1,7 @@
 package stream
 
 import (
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 )
 
@@ -24,8 +24,9 @@ func (es *subscriptionStream) Stream() error {
 			select {
 			case e := <-es.subscription.Events:
 				if e != nil {
+					responseStream.SendCDS(e.Clusters)
+					responseStream.SendRDS(e.Routes)
 					responseStream.SendEDS(e.CLA)
-					responseStream.SendCDS(e.Cluster)
 				}
 			}
 		}

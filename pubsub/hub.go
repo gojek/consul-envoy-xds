@@ -3,7 +3,7 @@ package pubsub
 import (
 	"sync"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/satori/go.uuid"
 )
 
@@ -17,8 +17,9 @@ type CLAChan chan *cp.ClusterLoadAssignment
 type EventChan chan *Event
 
 type Event struct {
-	CLA     *cp.ClusterLoadAssignment
-	Cluster *cp.Cluster
+	CLA      *cp.ClusterLoadAssignment
+	Clusters []*cp.Cluster
+	Routes   []*cp.RouteConfiguration
 }
 
 type hub struct {

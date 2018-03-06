@@ -1,7 +1,7 @@
 package stream
 
 import (
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"

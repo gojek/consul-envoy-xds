@@ -5,7 +5,7 @@ import (
 
 	"github.com/gojektech/consul-envoy-xds/stream"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -13,7 +13,7 @@ import (
 
 func TestShouldShouldStreamEndpointDiscoveryResponse(t *testing.T) {
 	mockStream := &stream.MockXDSStream{}
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Return(nil)
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	cla := &cp.ClusterLoadAssignment{}
 	drs.SendEDS(cla)
@@ -29,7 +29,7 @@ func TestShouldShouldStreamEndpointDiscoveryResponse(t *testing.T) {
 
 func TestShouldShouldStreamEndpointDiscoveryResponseWithIncrementingNonceAndVersion(t *testing.T) {
 	mockStream := &stream.MockXDSStream{}
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(3).Return(nil)
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(3).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	drs.SendEDS(&cp.ClusterLoadAssignment{})
 	assert.Equal(t, "0", mockStream.Capture().Nonce)
@@ -45,10 +45,10 @@ func TestShouldShouldStreamEndpointDiscoveryResponseWithIncrementingNonceAndVers
 
 func TestShouldShouldStreamClusterDiscoveryResponse(t *testing.T) {
 	mockStream := &stream.MockXDSStream{}
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Return(nil)
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	cluster := &cp.Cluster{}
-	drs.SendCDS(cluster)
+	drs.SendCDS([]*cp.Cluster{cluster})
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.Cluster", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 1, len(capturedResponse.Resources))
@@ -61,15 +61,15 @@ func TestShouldShouldStreamClusterDiscoveryResponse(t *testing.T) {
 
 func TestShouldShouldStreamClusterDiscoveryResponseWithIncrementingNonceAndVersion(t *testing.T) {
 	mockStream := &stream.MockXDSStream{}
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(3).Return(nil)
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(3).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
-	drs.SendCDS(&cp.Cluster{})
+	drs.SendCDS([]*cp.Cluster{&cp.Cluster{}})
 	assert.Equal(t, "0", mockStream.Capture().Nonce)
 	assert.Equal(t, "0", mockStream.Capture().VersionInfo)
-	drs.SendCDS(&cp.Cluster{})
+	drs.SendCDS([]*cp.Cluster{&cp.Cluster{}})
 	assert.Equal(t, "1", mockStream.Capture().Nonce)
 	assert.Equal(t, "1", mockStream.Capture().VersionInfo)
-	drs.SendCDS(&cp.Cluster{})
+	drs.SendCDS([]*cp.Cluster{&cp.Cluster{}})
 	assert.Equal(t, "2", mockStream.Capture().Nonce)
 	assert.Equal(t, "2", mockStream.Capture().VersionInfo)
 	mockStream.AssertExpectations(t)

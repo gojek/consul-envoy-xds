@@ -1,7 +1,8 @@
 package eds
 
 import (
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	eds "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/hashicorp/consul/api"
 )
 
@@ -16,16 +17,16 @@ type ServiceHost struct {
 }
 
 // LbEndpoint translates a consul agent service endpoint to an envoy control plane LbEndpoint
-func (h ServiceHost) LbEndpoint() *cp.LbEndpoint {
-	return &cp.LbEndpoint{
-		HealthStatus: cp.HealthStatus_HEALTHY,
-		Endpoint: &cp.Endpoint{
-			Address: &cp.Address{
-				Address: &cp.Address_SocketAddress{
-					SocketAddress: &cp.SocketAddress{
-						Protocol: cp.SocketAddress_TCP,
+func (h ServiceHost) LbEndpoint() eds.LbEndpoint {
+	return eds.LbEndpoint{
+		HealthStatus: cpcore.HealthStatus_HEALTHY,
+		Endpoint: &eds.Endpoint{
+			Address: &cpcore.Address{
+				Address: &cpcore.Address_SocketAddress{
+					SocketAddress: &cpcore.SocketAddress{
+						Protocol: cpcore.TCP,
 						Address:  h.IPAddress,
-						PortSpecifier: &cp.SocketAddress_PortValue{
+						PortSpecifier: &cpcore.SocketAddress_PortValue{
 							PortValue: uint32(h.Port),
 						},
 					},

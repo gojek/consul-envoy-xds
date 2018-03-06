@@ -10,7 +10,7 @@ import (
 	"github.com/gojektech/consul-envoy-xds/edswatch"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 )
 

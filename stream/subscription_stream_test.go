@@ -7,7 +7,7 @@ import (
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 	"github.com/gojektech/consul-envoy-xds/stream"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -24,12 +24,12 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
 	n := 42
 	done := make(chan bool, n)
-	mockStream.On("Send", mock.AnythingOfType("*api.DiscoveryResponse")).Times(n * 2).Run(func(mock.Arguments) {
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(n * 2).Run(func(mock.Arguments) {
 		done <- true
 	}).Return(nil)
 
 	for i := 1; i <= n; i++ {
-		subscription.Accept(&pubsub.Event{&cp.ClusterLoadAssignment{}, &cp.Cluster{}})
+		subscription.Accept(&pubsub.Event{&cp.ClusterLoadAssignment{}, []*cp.Cluster{&cp.Cluster{}}, []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
 	}
 	timeout := make(chan bool, 1)
 	go func() {
