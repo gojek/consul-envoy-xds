@@ -24,7 +24,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	subscriptionStream := stream.NewSubscriptionStream(mockStream, subscription)
 	n := 42
 	done := make(chan bool, n)
-	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(n * 2).Run(func(mock.Arguments) {
+	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(n * 3).Run(func(mock.Arguments) {
 		done <- true
 	}).Return(nil)
 
@@ -37,7 +37,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 		timeout <- true
 	}()
 	go subscriptionStream.Stream()
-	for i := 1; i <= n*2; i++ {
+	for i := 1; i <= n*3; i++ {
 		select {
 		case <-done:
 			t.Logf("%d was done\n", i)
