@@ -5,7 +5,6 @@ import:
 - package: github.com/hashicorp/consul
   version: ^1.0.2
 - package: github.com/envoyproxy/go-control-plane
-  version: 858cbd409fb547344f222654241050fefce79535
 - package: google.golang.org/grpc
   version: ^1.8.2
 - package: github.com/gogo/protobuf

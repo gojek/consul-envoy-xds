@@ -1,12 +1,12 @@
 hash: 222ccc41d6e9e16730680a4ce69427572343882c23e2c11c38610e5dbd4a7752
-updated: 2018-03-06T09:45:42.775407794+07:00
+updated: 2018-03-13T15:04:58.711868134+05:30
 imports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/envoyproxy/go-control-plane
-  version: 27b41d66e93019989af69b01b92fabdda78a6be1
+  version: 999f0991b6aea8c5485df31682b8adbdba1ecd07
   subpackages:
   - envoy/api/v2
   - envoy/api/v2/auth
@@ -15,6 +15,7 @@ imports:
   - envoy/api/v2/endpoint
   - envoy/api/v2/listener
   - envoy/api/v2/route
+  - envoy/service/discovery/v2
   - envoy/type
 - name: github.com/fsnotify/fsnotify
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
