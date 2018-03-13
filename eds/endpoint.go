@@ -56,9 +56,10 @@ func (s *service) Clusters() []*cp.Cluster {
 	services, _ := s.agent.CatalogServiceEndpoints(s.name)
 	if len(services) > 0 {
 		return []*cp.Cluster{&cp.Cluster{
-			Name:           fmt.Sprintf("%s", services[0].ServiceName),
-			Type:           cp.Cluster_EDS,
-			ConnectTimeout: 1 * time.Second,
+			Name:              fmt.Sprintf("%s", services[0].ServiceName),
+			Type:              cp.Cluster_EDS,
+			ConnectTimeout:    1 * time.Second,
+			ProtocolSelection: cp.Cluster_USE_DOWNSTREAM_PROTOCOL,
 			EdsClusterConfig: &cp.Cluster_EdsClusterConfig{
 				EdsConfig: &cpcore.ConfigSource{
 					ConfigSourceSpecifier: &cpcore.ConfigSource_Ads{

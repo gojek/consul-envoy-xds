@@ -42,6 +42,7 @@ func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 	clusters := endpoint.Clusters()
 
 	assert.Equal(t, "foo-service", clusters[0].Name)
+	assert.Equal(t, cp.Cluster_USE_DOWNSTREAM_PROTOCOL, clusters[0].ProtocolSelection)
 }
 
 func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
