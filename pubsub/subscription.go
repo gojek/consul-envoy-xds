@@ -1,24 +1,23 @@
 package pubsub
 
 import (
-	cp "github.com/envoyproxy/go-control-plane/api"
 	"github.com/satori/go.uuid"
 )
 
 //Subscription is a unique channel of ClusterLoadAssignments
 type Subscription struct {
 	ID      uuid.UUID
-	Cla     CLAChan
+	Events  EventChan
 	OnClose func(uuid.UUID)
 }
 
-func (s Subscription) Accept(c *cp.ClusterLoadAssignment) {
+func (s Subscription) Accept(e *Event) {
 	select {
-	case s.Cla <- c:
+	case s.Events <- e:
 	}
 }
 
 func (s Subscription) Close() {
 	s.OnClose(s.ID)
-	close(s.Cla)
+	close(s.Events)
 }

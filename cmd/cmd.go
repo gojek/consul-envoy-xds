@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 
-	cp "github.com/envoyproxy/go-control-plane/api"
+	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"google.golang.org/grpc"
 )
 
@@ -15,14 +15,18 @@ func main() {
 		log.Fatalf("fail to dial: %v", err)
 	}
 	defer conn.Close()
-	client := cp.NewEndpointDiscoveryServiceClient(conn)
-	stream, err := client.StreamEndpoints(context.Background())
+	client := cp.NewAggregatedDiscoveryServiceClient(conn)
+	stream, err := client.StreamAggregatedResources(context.Background())
 	if err != nil {
 		log.Fatalf("fail to stream: %v", err)
 	}
 
 	for {
 		discoveryResponse, err := stream.Recv()
+		log.Printf("received discovery request\nnonce: %s, type: %s, version: %s\n",
+			discoveryResponse.Nonce,
+			discoveryResponse.GetTypeUrl,
+			discoveryResponse.VersionInfo)
 		if err == io.EOF {
 			break
 		}
