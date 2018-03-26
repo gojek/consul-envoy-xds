@@ -16,22 +16,37 @@ type ServiceHost struct {
 	ModifyIndex uint64
 }
 
-// LbEndpoint translates a consul agent service endpoint to an envoy control plane LbEndpoint
-func (h ServiceHost) LbEndpoint() eds.LbEndpoint {
-	return eds.LbEndpoint{
-		HealthStatus: cpcore.HealthStatus_HEALTHY,
-		Endpoint: &eds.Endpoint{
-			Address: &cpcore.Address{
-				Address: &cpcore.Address_SocketAddress{
-					SocketAddress: &cpcore.SocketAddress{
-						Protocol: cpcore.TCP,
-						Address:  h.IPAddress,
-						PortSpecifier: &cpcore.SocketAddress_PortValue{
-							PortValue: uint32(h.Port),
+// LbEndpoint translates a consul agent service endpoint to an envoy control plane LbEndpoint.
+// If the ServiceHost's port is < 1, the endpoint is assumed to be a Pipe and the IPAddress
+// represents the Pipe's Path.
+func (h ServiceHost) LbEndpoint() *cp.LbEndpoint {
+	if uint32(h.Port) > 0 {
+		return &cp.LbEndpoint{
+			HealthStatus: cp.HealthStatus_HEALTHY,
+			Endpoint: &cp.Endpoint{
+				Address: &cp.Address{
+					Address: &cp.Address_SocketAddress{
+						SocketAddress: &cp.SocketAddress{
+							Protocol: cp.SocketAddress_TCP,
+							Address:  h.IPAddress,
+							PortSpecifier: &cp.SocketAddress_PortValue{
+								PortValue: uint32(h.Port),
+							},
 						},
+					},
+				}}}
+	}
+	return &cp.LbEndpoint{
+		HealthStatus: cp.HealthStatus_HEALTHY,
+		Endpoint: &cp.Endpoint{
+			Address: &cp.Address{
+				Address: &cp.Address_Pipe{
+					Pipe: &cp.Pipe{
+						Path: h.IPAddress,
 					},
 				},
 			}}}
+
 }
 
 //NewServiceHost creates a new service host from a consul catalog service
