@@ -19,5 +19,3 @@ func TestShouldSetPipeCPLBAEndpoint(t *testing.T) {
 	ep := sh.LbEndpoint()
 	assert.Equal(t, "pipe:<path:\"/tmp/tsd.26333.sock\" > ", ep.Endpoint.Address.String())
 }
-
-
