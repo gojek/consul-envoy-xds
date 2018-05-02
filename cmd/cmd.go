@@ -25,7 +25,7 @@ func main() {
 		discoveryResponse, err := stream.Recv()
 		log.Printf("received discovery request\nnonce: %s, type: %s, version: %s\n",
 			discoveryResponse.Nonce,
-			discoveryResponse.GetTypeUrl,
+			discoveryResponse.GetTypeUrl(),
 			discoveryResponse.VersionInfo)
 		if err == io.EOF {
 			break
