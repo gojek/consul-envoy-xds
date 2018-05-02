@@ -8,7 +8,7 @@ If you are using Consul for service discovery and would like to use Envoy withou
 
 ## Building it
 
-1. We use Glide for dependency management, instructions to install it can be found [here](http://glide.sh/).
+1. We use Dep for dependency management, instructions to install it can be found [here](https://github.com/golang/dep).
 2. Fetch dev dependencies and create dev config (application.yml) from sample.
 
    ```
