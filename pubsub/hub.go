@@ -27,13 +27,16 @@ type hub struct {
 }
 
 func (h *hub) Subscribe() *Subscription {
-	id := uuid.NewV4()
-	subs := &Subscription{ID: id, Events: make(EventChan, 1000), OnClose: func(subID uuid.UUID) {
-		h.subscriptions.Delete(subID)
-	}}
-	h.subscriptions.Store(id, subs)
+	id, error := uuid.NewV4()
+	if error == nil {
+		subs := &Subscription{ID: id, Events: make(EventChan, 1000), OnClose: func(subID uuid.UUID) {
+			h.subscriptions.Delete(subID)
+		}}
+		h.subscriptions.Store(id, subs)
 
-	return subs
+		return subs
+	}
+	return nil
 }
 
 func (h *hub) Publish(event *Event) {
