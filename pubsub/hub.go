@@ -27,8 +27,8 @@ type hub struct {
 }
 
 func (h *hub) Subscribe() *Subscription {
-	id, error := uuid.NewV4()
-	if error == nil {
+	id, err := uuid.NewV4()
+	if err == nil {
 		subs := &Subscription{ID: id, Events: make(EventChan, 1000), OnClose: func(subID uuid.UUID) {
 			h.subscriptions.Delete(subID)
 		}}
