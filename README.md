@@ -32,7 +32,7 @@ Locally, the service can be configured by setting the environment variables in a
 ```
 PORT: 8053
 LOG_LEVEL: DEBUG
-CONSUL_AGENT_PORT: 8500
+CONSUL_CLIENT_PORT: 8500
 CONSUL_CLIENT_HOST: localhost
 CONSUL_DC: dc1
 CONSUL_TOKEN: ""
@@ -67,11 +67,11 @@ static_resources:
               domains: ["*"]
               routes:
               - match: { prefix: "/" }
-                route: { cluster: foo-svc }
+                route: { cluster: foo-service }
           http_filters:
           - name: envoy.router
   clusters:
-  - name: foo-svc
+  - name: foo-service
     connect_timeout: 0.25s
     lb_policy: ROUND_ROBIN
     http2_protocol_options: {}
