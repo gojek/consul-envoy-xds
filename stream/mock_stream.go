@@ -27,6 +27,6 @@ func (*MockXDSStream) Recv() (*cp.DiscoveryRequest, error) { return nil, nil }
 func (*MockXDSStream) SetHeader(metadata.MD) error         { return nil }
 func (*MockXDSStream) SendHeader(metadata.MD) error        { return nil }
 func (*MockXDSStream) SetTrailer(metadata.MD)              {}
-func (m *MockXDSStream) Context() context.Context          { return m.Ctx }
+func (s *MockXDSStream) Context() context.Context          { return s.Ctx }
 func (*MockXDSStream) SendMsg(m interface{}) error         { return nil }
 func (*MockXDSStream) RecvMsg(m interface{}) error         { return nil }

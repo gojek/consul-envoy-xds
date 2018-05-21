@@ -17,17 +17,17 @@ type MockConsulAgent struct {
 	mock.Mock
 }
 
-func (m MockConsulAgent) Locality() *cpcore.Locality {
+func (m *MockConsulAgent) Locality() *cpcore.Locality {
 	args := m.Called()
 	return args.Get(0).(*cpcore.Locality)
 }
 
-func (m MockConsulAgent) CatalogServiceEndpoints(serviceName string) ([]*api.CatalogService, error) {
+func (m *MockConsulAgent) CatalogServiceEndpoints(serviceName string) ([]*api.CatalogService, error) {
 	args := m.Called(serviceName)
 	return args.Get(0).([]*api.CatalogService), args.Error(1)
 }
 
-func (m MockConsulAgent) WatchParams() map[string]string {
+func (m *MockConsulAgent) WatchParams() map[string]string {
 	args := m.Called()
 	return args.Get(0).(map[string]string)
 }

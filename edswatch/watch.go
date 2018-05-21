@@ -18,7 +18,7 @@ type ServiceWatch struct {
 
 //PublishCLA publishes a cluster load assignment to hub
 func (sw *ServiceWatch) PublishCLA(idx uint64, data interface{}) {
-	sw.hub.Publish(&pubsub.Event{sw.service.CLA(), []*cp.Cluster{&cp.Cluster{}}, []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
+	sw.hub.Publish(&pubsub.Event{CLA: sw.service.CLA(), Clusters: []*cp.Cluster{&cp.Cluster{}}, Routes: []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
 }
 
 // NewWatch creates a new service watch

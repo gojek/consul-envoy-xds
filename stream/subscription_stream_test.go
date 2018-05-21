@@ -29,7 +29,7 @@ func TestShouldKeepStreamingUntilInterrupted(t *testing.T) {
 	}).Return(nil)
 
 	for i := 1; i <= n; i++ {
-		subscription.Accept(&pubsub.Event{&cp.ClusterLoadAssignment{}, []*cp.Cluster{&cp.Cluster{}}, []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
+		subscription.Accept(&pubsub.Event{CLA: &cp.ClusterLoadAssignment{}, Clusters: []*cp.Cluster{&cp.Cluster{}}, Routes: []*cp.RouteConfiguration{&cp.RouteConfiguration{}}})
 	}
 	timeout := make(chan bool, 1)
 	go func() {

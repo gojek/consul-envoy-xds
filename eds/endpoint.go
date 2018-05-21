@@ -113,7 +113,7 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 	}
 	plan.Handler = func(idx uint64, data interface{}) {
 		println("consul watch triggerred")
-		publish(&pubsub.Event{s.CLA(), s.Clusters(), s.Routes()})
+		publish(&pubsub.Event{CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
 	}
 	return plan, nil
 }

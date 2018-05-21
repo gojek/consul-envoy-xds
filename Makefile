@@ -36,7 +36,7 @@ fmt:
 	go fmt ./...
 
 vet:
-	go vet ./...
+	go vet $(ALL_PACKAGES)
 
 lint:
 	@for p in $(UNIT_TEST_PACKAGES); do \
