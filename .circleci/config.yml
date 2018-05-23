@@ -1,9 +1,7 @@
 version: 2
-machine:
-  services:
-    - docker
 jobs:
   build:
+    machine: true
     working_directory: /go/src/github.com/CircleCI-Public/consul-envoy-xds
     docker:
       - image: circleci/golang:1.9
@@ -29,10 +27,11 @@ jobs:
       - run:
           name: Docker Build
           command: |
-            docker build -t gojektech/consul-envoy-xds:${CIRCLE_SHA1} .
-deployment:
-  hub:
-    branch: master
-    commands:
-      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - docker push gojektech/consul-envoy-xds:${CIRCLE_SHA1}
+            TAG=0.1.0-$CIRCLE_SHA1
+            docker build -t gojektech/consul-envoy-xds:$TAG .
+      - run:
+          name: Docker Publish
+          command: |
+            TAG=0.1.0-$CIRCLE_SHA1
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            docker push gojektech/consul-envoy-xds:$TAG
