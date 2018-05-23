@@ -5,7 +5,6 @@ jobs:
     working_directory: /go/src/github.com/CircleCI-Public/consul-envoy-xds
     docker:
       - image: circleci/golang:1.9
-    working_directory: ~/repo
     steps:
       - checkout
       - restore_cache:
