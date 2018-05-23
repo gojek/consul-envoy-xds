@@ -1,0 +1,26 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.9
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+          - vendor-pkg-{{ checksum "Gopkg.lock" }}
+          - vendor-pkg-
+      - run:
+          name: Install Dependencies
+          command: |
+            make setup
+      - save_cache:
+          paths:
+            - ./vendor
+            - "/go/pkg"
+          key: vendor-pkg-{{ checksum "Gopkg.lock" }}
+      - run:
+          name: Run tests
+          command: |
+            make test
