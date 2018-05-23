@@ -1,12 +1,13 @@
 version: 2
 jobs:
   build:
-    machine: true
     working_directory: /go/src/github.com/CircleCI-Public/consul-envoy-xds
     docker:
       - image: circleci/golang:1.9
     steps:
       - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
       - restore_cache:
           keys:
           - vendor-pkg-{{ checksum "Gopkg.lock" }}
