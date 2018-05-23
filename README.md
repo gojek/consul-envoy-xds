@@ -1,4 +1,4 @@
-# consul-envoy-xds
+# consul-envoy-xds [![CircleCI](https://circleci.com/gh/gojektech/consul-envoy-xds.svg?style=svg)](https://circleci.com/gh/gojektech/consul-envoy-xds)
 
 consul-envoy-xds is an implementation of an Envoy Control Plane/xDiscovery Service via the [Envoy data plane API](https://github.com/envoyproxy/data-plane-api). It makes services registered with Consul available as endpoints through [EDS](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/eds.proto.html).
 
