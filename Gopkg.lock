@@ -394,6 +394,7 @@
     "github.com/hashicorp/consul/lib/freeport",
     "github.com/hashicorp/consul/testutil",
     "github.com/hashicorp/consul/watch",
+    "github.com/newrelic/go-agent",
     "github.com/satori/go.uuid",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",

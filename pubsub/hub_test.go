@@ -3,6 +3,7 @@ package pubsub
 import (
 	"testing"
 
+	"context"
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,7 +13,7 @@ func TestShouldAddSubscriptionToListOfSubscribers(t *testing.T) {
 	subscription := hub.Subscribe()
 	cla := []*cp.ClusterLoadAssignment{}
 	cluster := &cp.Cluster{}
-	event := &Event{cla, []*cp.Cluster{cluster}, nil}
+	event := &Event{Context: context.Background(), CLA: cla, Clusters: []*cp.Cluster{cluster}, Routes: nil}
 	hub.Publish(event)
 	a := <-subscription.Events
 	assert.Equal(t, 1, hub.Size())
