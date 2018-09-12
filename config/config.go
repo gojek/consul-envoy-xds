@@ -50,6 +50,18 @@ func (cfg *Config) WatchedServices() []string {
 	return strings.Split(cfg.GetValue("WATCHED_SERVICE"), ",")
 }
 
+func (cfg *Config) AppName() string {
+	return cfg.GetOptionalValue("APP_NAME", "consul-envoy-xds")
+}
+
+func (cfg *Config) NewRelicLicenseKey() string {
+	return cfg.GetValue("NEW_RELIC_LICENSE_KEY")
+}
+
+func (cfg *Config) NewRelicEnabled() bool {
+	return cfg.GetFeature("NEW_RELIC_ENABLED")
+}
+
 func (cfg *Config) WhitelistedRoutes(svc string) []string {
 	canonicalName := strings.Replace(svc, "-", "_", -1)
 	whitelist := cfg.GetOptionalValue(strings.ToUpper(canonicalName)+"_WHITELISTED_ROUTES", "/")

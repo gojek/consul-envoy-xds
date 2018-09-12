@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"context"
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,8 @@ func TestShouldStreamEndpointDiscoveryResponse(t *testing.T) {
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	cla := []*cp.ClusterLoadAssignment{{}}
-	drs.SendEDS(cla)
+	background := context.Background()
+	drs.SendEDS(background, cla)
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 1, len(capturedResponse.Resources))
@@ -38,7 +40,7 @@ func TestShouldStreamEndpointDiscoveryResponseWithMultipleClusterResources(t *te
 		&cp.Cluster{Name: "foo"},
 		&cp.Cluster{Name: "bar"},
 	}
-	drs.SendCDS(clusters)
+	drs.SendCDS(context.Background(), clusters)
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.Cluster", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 2, len(capturedResponse.Resources))
@@ -60,7 +62,7 @@ func TestShouldStreamEndpointDiscoveryResponseWithMultipleRouteResources(t *test
 		&cp.RouteConfiguration{Name: "foo"},
 		&cp.RouteConfiguration{Name: "bar"},
 	}
-	drs.SendRDS(routeConfig)
+	drs.SendRDS(context.Background(), routeConfig)
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.RouteConfiguration", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 2, len(capturedResponse.Resources))
@@ -80,19 +82,19 @@ func TestShouldStreamEndpointDiscoveryResponseWithIncrementingNonceAndVersion(t 
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(3).Return(nil)
 
 	drs := stream.NewDiscoveryResponseStream(mockStream)
-	drs.SendEDS([]*cp.ClusterLoadAssignment{})
+	drs.SendEDS(context.Background(), []*cp.ClusterLoadAssignment{})
 	nonce1, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce1) > now)
 	version1, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version1) > now)
 
-	drs.SendEDS([]*cp.ClusterLoadAssignment{})
+	drs.SendEDS(context.Background(), []*cp.ClusterLoadAssignment{})
 	nonce2, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce2) > now)
 	version2, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version2) > now)
 
-	drs.SendEDS([]*cp.ClusterLoadAssignment{})
+	drs.SendEDS(context.Background(), []*cp.ClusterLoadAssignment{})
 	nonce3, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce3) > now)
 	version3, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
@@ -107,7 +109,7 @@ func TestShouldStreamClusterDiscoveryResponse(t *testing.T) {
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	cluster := &cp.Cluster{}
-	drs.SendCDS([]*cp.Cluster{cluster})
+	drs.SendCDS(context.Background(), []*cp.Cluster{cluster})
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.Cluster", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 1, len(capturedResponse.Resources))
@@ -124,19 +126,19 @@ func TestShouldStreamClusterDiscoveryResponseWithIncrementingNonceAndVersion(t *
 
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(3).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
-	drs.SendCDS([]*cp.Cluster{{}})
+	drs.SendCDS(context.Background(), []*cp.Cluster{{}})
 	nonce1, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce1) > now)
 	version1, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version1) > now)
 
-	drs.SendCDS([]*cp.Cluster{{}})
+	drs.SendCDS(context.Background(), []*cp.Cluster{{}})
 	nonce2, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce2) > now)
 	version2, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version2) > now)
 
-	drs.SendCDS([]*cp.Cluster{{}})
+	drs.SendCDS(context.Background(), []*cp.Cluster{{}})
 	nonce3, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce3) > now)
 	version3, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
@@ -151,7 +153,7 @@ func TestShouldStreamRouteConfigurationResponse(t *testing.T) {
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
 	route := &cp.RouteConfiguration{}
-	drs.SendRDS([]*cp.RouteConfiguration{route})
+	drs.SendRDS(context.Background(), []*cp.RouteConfiguration{route})
 	assert.Equal(t, "type.googleapis.com/envoy.api.v2.RouteConfiguration", mockStream.Capture().TypeUrl)
 	capturedResponse := mockStream.Capture()
 	assert.Equal(t, 1, len(capturedResponse.Resources))
@@ -168,19 +170,19 @@ func TestShouldStreamRouteConfigurationResponseWithIncrementingNonceAndVersion(t
 
 	mockStream.On("Send", mock.AnythingOfType("*v2.DiscoveryResponse")).Times(3).Return(nil)
 	drs := stream.NewDiscoveryResponseStream(mockStream)
-	drs.SendRDS([]*cp.RouteConfiguration{{}})
+	drs.SendRDS(context.Background(), []*cp.RouteConfiguration{{}})
 	nonce1, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce1) > now)
 	version1, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version1) > now)
 
-	drs.SendRDS([]*cp.RouteConfiguration{{}})
+	drs.SendRDS(context.Background(), []*cp.RouteConfiguration{{}})
 	nonce2, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce2) > now)
 	version2, _ := strconv.Atoi(mockStream.Capture().VersionInfo)
 	assert.True(t, int64(version2) > now)
 
-	drs.SendRDS([]*cp.RouteConfiguration{{}})
+	drs.SendRDS(context.Background(), []*cp.RouteConfiguration{{}})
 	nonce3, _ := strconv.Atoi(mockStream.Capture().Nonce)
 	assert.True(t, int64(nonce3) > now)
 	version3, _ := strconv.Atoi(mockStream.Capture().VersionInfo)

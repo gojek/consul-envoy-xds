@@ -4,8 +4,12 @@ import (
 	"io"
 	"log"
 
+	"context"
+
 	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gojektech/consul-envoy-xds/eds"
+	"github.com/gojektech/consul-envoy-xds/eventctx"
+	"github.com/gojektech/consul-envoy-xds/instrument"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 )
 
@@ -46,11 +50,7 @@ func (es *subscriptionStream) Stream() error {
 		for {
 			select {
 			case e := <-es.subscription.Events:
-				if e != nil {
-					responseStream.SendCDS(e.Clusters)
-					responseStream.SendRDS(e.Routes)
-					responseStream.SendEDS(e.CLA)
-				}
+				es.process(e, responseStream)
 			}
 		}
 	}()
@@ -64,6 +64,17 @@ func (es *subscriptionStream) Stream() error {
 	}()
 	<-terminate
 	return nil
+}
+
+func (es *subscriptionStream) process(e *pubsub.Event, responseStream DiscoveryResponseStream) {
+	txn := instrument.NewRelicApp().StartTransaction("discovery_response_stream", nil, nil)
+	defer txn.End()
+	ctx := eventctx.SetNewRelicTxn(context.Background(), txn)
+	if e != nil {
+		responseStream.SendCDS(ctx, e.Clusters)
+		responseStream.SendRDS(ctx, e.Routes)
+		responseStream.SendEDS(ctx, e.CLA)
+	}
 }
 
 func NewSubscriptionStream(stream cp.AggregatedDiscoveryService_StreamAggregatedResourcesServer, subscription *pubsub.Subscription, service eds.Endpoint, hub pubsub.Hub) SubscriptionStream {

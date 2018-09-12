@@ -4,6 +4,7 @@ import (
 	"log"
 	"sync"
 
+	"context"
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/satori/go.uuid"
 )
@@ -21,6 +22,7 @@ type Event struct {
 	CLA      []*cp.ClusterLoadAssignment
 	Clusters []*cp.Cluster
 	Routes   []*cp.RouteConfiguration
+	Context  context.Context
 }
 
 type hub struct {

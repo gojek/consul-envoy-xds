@@ -20,8 +20,10 @@ setup:
 	dep ensure
 	mkdir -p out/
 	go build -o $(APP_EXECUTABLE)
-	cp application.yml.sample application.yml
 	@echo "consul-envoy-xds is setup!! Run make test to run tests"
+
+copy-config:
+	cp application.yml.sample application.yml
 
 build-deps:
 	go install
@@ -50,7 +52,7 @@ lint:
 		golint $$p | { grep -vwE "exported (var|function|method|type|const) \S+ should have comment" || true; } \
 	done
 
-test: compile
+test: compile copy-config
 	ENVIRONMENT=test go test $(UNIT_TEST_PACKAGES) -p=1
 
 test-coverage: compile

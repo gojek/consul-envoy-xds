@@ -1,18 +1,19 @@
 package eds
 
 import (
+	"context"
 	"fmt"
-	"time"
-
-	"github.com/gojektech/consul-envoy-xds/agent"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
-
 	"log"
+	"time"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	eds "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gojektech/consul-envoy-xds/agent"
+	"github.com/gojektech/consul-envoy-xds/eventctx"
+	"github.com/gojektech/consul-envoy-xds/instrument"
+	"github.com/gojektech/consul-envoy-xds/pubsub"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
 )
@@ -126,8 +127,11 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 		return nil, err
 	}
 	plan.Handler = func(idx uint64, data interface{}) {
+		txn := instrument.NewRelicApp().StartTransaction("watch", nil, nil)
+		defer txn.End()
 		log.Println(fmt.Sprintf("consul watch triggerred: %v", data))
-		publish(&pubsub.Event{CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
+		ctx := eventctx.SetNewRelicTxn(context.Background(), txn)
+		publish(&pubsub.Event{Context: ctx, CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
 	}
 	return plan, nil
 }
