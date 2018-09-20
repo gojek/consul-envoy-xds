@@ -2,8 +2,8 @@ package config
 
 import (
 	"fmt"
-	"github.com/gojektech/consul-envoy-xds/agent"
-	"github.com/gojektech/consul-envoy-xds/eds"
+
+	"strings"
 
 	"github.com/gojek-engineering/goconfig"
 )
@@ -46,10 +46,12 @@ func (cfg *Config) ConsulDC() string {
 	return cfg.GetValue("CONSUL_DC")
 }
 
-func (cfg *Config) WatchedServiceName() string {
-	return cfg.GetValue("WATCHED_SERVICE")
+func (cfg *Config) WatchedServices() []string {
+	return strings.Split(cfg.GetValue("WATCHED_SERVICE"), ",")
 }
 
-func (cfg *Config) WatchedService() eds.Endpoint {
-	return eds.NewEndpoint(cfg.WatchedServiceName(), agent.NewAgent(cfg.ConsulAddress(), cfg.ConsulToken(), cfg.ConsulDC()))
+func (cfg *Config) WhitelistedRoutes(svc string) []string {
+	canonicalName := strings.Replace(svc, "-", "_", -1)
+	whitelist := cfg.GetOptionalValue(strings.ToUpper(canonicalName)+"_WHITELISTED_ROUTES", "/")
+	return strings.Split(whitelist, ",")
 }

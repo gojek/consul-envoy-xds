@@ -10,7 +10,7 @@ import (
 func TestShouldAddSubscriptionToListOfSubscribers(t *testing.T) {
 	hub := NewHub()
 	subscription := hub.Subscribe()
-	cla := &cp.ClusterLoadAssignment{}
+	cla := []*cp.ClusterLoadAssignment{}
 	cluster := &cp.Cluster{}
 	event := &Event{cla, []*cp.Cluster{cluster}, nil}
 	hub.Publish(event)

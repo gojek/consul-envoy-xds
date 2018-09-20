@@ -1,7 +1,10 @@
 package stream
 
 import (
+	"log"
 	"strconv"
+
+	"time"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	dis "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -10,7 +13,7 @@ import (
 )
 
 type EndpointDiscoveryResponseStream interface {
-	SendEDS(*cp.ClusterLoadAssignment) error
+	SendEDS([]*cp.ClusterLoadAssignment) error
 }
 
 type ClusterDiscoveryResponseStream interface {
@@ -30,83 +33,98 @@ type DiscoveryResponseStream interface {
 
 type responseStream struct {
 	stream  dis.AggregatedDiscoveryService_StreamAggregatedResourcesServer
-	nonce   int
-	version int
+	nonce   int64
+	version int64
 }
 
 //Send a CLA on current stream
-func (streamer *responseStream) SendEDS(c *cp.ClusterLoadAssignment) error {
-	data, err := proto.Marshal(c)
-	if err != nil {
-		return err
+func (streamer *responseStream) SendEDS(cLAList []*cp.ClusterLoadAssignment) error {
+	var resources []types.Any
+	for _, cLA := range cLAList {
+		data, err := proto.Marshal(cLA)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, types.Any{
+			TypeUrl: "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment",
+			Value:   data,
+		})
 	}
-	resources := []types.Any{{
-		TypeUrl: "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment",
-		Value:   data,
-	}}
 
-	streamer.stream.Send(&cp.DiscoveryResponse{
+	resp := &cp.DiscoveryResponse{
 		VersionInfo: strconv.FormatInt(int64(streamer.version), 10),
 		Resources:   resources,
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
-	})
-	streamer.version++
-	streamer.nonce++
+	}
+	streamer.stream.Send(resp)
+	log.Printf("sent EDS on stream: %v", resp)
+	streamer.version = time.Now().UnixNano()
+	streamer.nonce = time.Now().UnixNano()
 	return nil
 }
 
 //Send a Cluster on current stream
-func (streamer *responseStream) SendCDS(c []*cp.Cluster) error {
-	if len(c) == 0 {
+func (streamer *responseStream) SendCDS(clusters []*cp.Cluster) error {
+	if len(clusters) == 0 {
 		return nil
 	}
-	data, err := proto.Marshal(c[0])
-	if err != nil {
-		return err
+	var resources []types.Any
+	for _, cluster := range clusters {
+		data, err := proto.Marshal(cluster)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, types.Any{
+			TypeUrl: "type.googleapis.com/envoy.api.v2.Cluster",
+			Value:   data,
+		})
 	}
-	resources := []types.Any{{
-		TypeUrl: "type.googleapis.com/envoy.api.v2.Cluster",
-		Value:   data,
-	}}
 
-	streamer.stream.Send(&cp.DiscoveryResponse{
+	resp := &cp.DiscoveryResponse{
 		VersionInfo: strconv.FormatInt(int64(streamer.version), 10),
 		Resources:   resources,
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.Cluster",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
-	})
-	streamer.version++
-	streamer.nonce++
+	}
+	streamer.stream.Send(resp)
+	log.Printf("sent CDS on stream: %v", resp)
+	streamer.version = time.Now().UnixNano()
+	streamer.nonce = time.Now().UnixNano()
 	return nil
 }
 
 //Send a Cluster on current stream
-func (streamer *responseStream) SendRDS(c []*cp.RouteConfiguration) error {
-	if len(c) == 0 {
+func (streamer *responseStream) SendRDS(routeConfig []*cp.RouteConfiguration) error {
+	if len(routeConfig) == 0 {
 		return nil
 	}
-	data, err := proto.Marshal(c[0])
-	if err != nil {
-		return err
+	var resources []types.Any
+	for _, route := range routeConfig {
+		data, err := proto.Marshal(route)
+		if err != nil {
+			return err
+		}
+		resources = append(resources, types.Any{
+			TypeUrl: "type.googleapis.com/envoy.api.v2.RouteConfiguration",
+			Value:   data,
+		})
 	}
-	resources := []types.Any{{
-		TypeUrl: "type.googleapis.com/envoy.api.v2.RouteConfiguration",
-		Value:   data,
-	}}
 
-	streamer.stream.Send(&cp.DiscoveryResponse{
+	resp := &cp.DiscoveryResponse{
 		VersionInfo: strconv.FormatInt(int64(streamer.version), 10),
 		Resources:   resources,
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.RouteConfiguration",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
-	})
-	streamer.version++
-	streamer.nonce++
+	}
+	streamer.stream.Send(resp)
+	log.Printf("sent RDS on stream: %v", resp)
+	streamer.version = time.Now().UnixNano()
+	streamer.nonce = time.Now().UnixNano()
 	return nil
 }
 
 //NewDiscoveryResponseStream creates a DiscoveryResponseStream
 func NewDiscoveryResponseStream(stream dis.AggregatedDiscoveryService_StreamAggregatedResourcesServer) DiscoveryResponseStream {
-	return &responseStream{stream: stream, nonce: 0, version: 0}
+	return &responseStream{stream: stream, nonce: time.Now().UnixNano(), version: time.Now().UnixNano()}
 }
