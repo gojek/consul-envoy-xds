@@ -16,7 +16,7 @@ func TestShouldSendCLAOnCLAChanOnAccept(t *testing.T) {
 	}}
 	publishedCla := &cp.ClusterLoadAssignment{}
 	cluster := &cp.Cluster{}
-	event := &pubsub.Event{CLA: publishedCla, Clusters: []*cp.Cluster{cluster}, Routes: []*cp.RouteConfiguration{&cp.RouteConfiguration{}}}
+	event := &pubsub.Event{CLA: []*cp.ClusterLoadAssignment{publishedCla}, Clusters: []*cp.Cluster{cluster}, Routes: []*cp.RouteConfiguration{&cp.RouteConfiguration{}}}
 	subscription.Accept(event)
 	e := <-subscription.Events
 

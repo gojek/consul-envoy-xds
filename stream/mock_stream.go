@@ -23,10 +23,14 @@ func (s *MockXDSStream) Send(r *cp.DiscoveryResponse) error {
 	return args.Error(0)
 }
 
-func (*MockXDSStream) Recv() (*cp.DiscoveryRequest, error) { return nil, nil }
-func (*MockXDSStream) SetHeader(metadata.MD) error         { return nil }
-func (*MockXDSStream) SendHeader(metadata.MD) error        { return nil }
-func (*MockXDSStream) SetTrailer(metadata.MD)              {}
-func (s *MockXDSStream) Context() context.Context          { return s.Ctx }
-func (*MockXDSStream) SendMsg(m interface{}) error         { return nil }
-func (*MockXDSStream) RecvMsg(m interface{}) error         { return nil }
+func (s *MockXDSStream) Recv() (req *cp.DiscoveryRequest, err error) {
+	args := s.Called()
+	return args.Get(0).(*cp.DiscoveryRequest), args.Error(1)
+}
+
+func (*MockXDSStream) SetHeader(metadata.MD) error  { return nil }
+func (*MockXDSStream) SendHeader(metadata.MD) error { return nil }
+func (*MockXDSStream) SetTrailer(metadata.MD)       {}
+func (s *MockXDSStream) Context() context.Context   { return s.Ctx }
+func (*MockXDSStream) SendMsg(m interface{}) error  { return nil }
+func (*MockXDSStream) RecvMsg(m interface{}) error  { return nil }

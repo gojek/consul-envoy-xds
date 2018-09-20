@@ -11,6 +11,7 @@ setup:
 	go get -u github.com/golang/lint/golint
 	go get github.com/DATA-DOG/godog/cmd/godog
 	go get -u github.com/go-playground/overalls
+	go get -u github.com/golang/dep/cmd/dep
 	dep ensure
 	mkdir -p out/
 	go build -o $(APP_EXECUTABLE)

@@ -8,6 +8,7 @@ import (
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,9 +23,9 @@ func (m *MockConsulAgent) Locality() *cpcore.Locality {
 	return args.Get(0).(*cpcore.Locality)
 }
 
-func (m *MockConsulAgent) CatalogServiceEndpoints(serviceName string) ([]*api.CatalogService, error) {
+func (m *MockConsulAgent) CatalogServiceEndpoints(serviceName ...string) ([][]*api.CatalogService, error) {
 	args := m.Called(serviceName)
-	return args.Get(0).([]*api.CatalogService), args.Error(1)
+	return args.Get(0).([][]*api.CatalogService), args.Error(1)
 }
 
 func (m *MockConsulAgent) WatchParams() map[string]string {
@@ -34,23 +35,66 @@ func (m *MockConsulAgent) WatchParams() map[string]string {
 
 func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", "foo-service").Return([]*api.CatalogService{
+	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{[]*api.CatalogService{
 		{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234},
-		{ServiceName: "foo-service", ServiceAddress: "foo2", ServicePort: 1234}},
+		{ServiceName: "foo-service", ServiceAddress: "foo2", ServicePort: 1234}}},
 		nil)
-	endpoint := eds.NewEndpoint("foo-service", agent)
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
 	clusters := endpoint.Clusters()
 
 	assert.Equal(t, "foo-service", clusters[0].Name)
 	assert.Equal(t, cp.Cluster_USE_DOWNSTREAM_PROTOCOL, clusters[0].ProtocolSelection)
 }
 
+func TestMultipleRouteConfiguration(t *testing.T) {
+	agent := &MockConsulAgent{}
+	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{[]*api.CatalogService{
+		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
+		nil)
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent)
+
+	routeConfig := endpoint.Routes()
+	virtualHosts := routeConfig[0].GetVirtualHosts()
+	assert.Equal(t, "local_route", routeConfig[0].GetName())
+	assert.Equal(t, []string{"*"}, virtualHosts[0].GetDomains())
+	assert.ElementsMatch(t, []route.Route{{
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{
+				Prefix: "/hoo",
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: "foo",
+				},
+			},
+		},
+	}, {
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{
+				Prefix: "/bar",
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: "foo",
+				},
+			},
+		},
+	}}, virtualHosts[0].GetRoutes())
+}
+
 func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
 	agent := &MockConsulAgent{}
 	agent.On("Locality").Return(&cpcore.Locality{Region: "foo-region"})
-	agent.On("CatalogServiceEndpoints", "foo-service").Return([]*api.CatalogService{{ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}, nil)
-	endpoint := eds.NewEndpoint("foo-service", agent)
-	cla := endpoint.CLA()
+	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{
+		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}},
+		nil,
+	)
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
+	cla := endpoint.CLA()[0]
 
 	assert.Equal(t, "foo-service", cla.ClusterName)
 	assert.Equal(t, float64(0), cla.Policy.DropOverload)
@@ -62,7 +106,7 @@ func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
 
 func TestShouldSetAgentBasedWatcherParamsInEndpointWatchPlan(t *testing.T) {
 	agent := &MockConsulAgent{}
-	endpoint := eds.NewEndpoint("foo-service", agent)
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 
 	plan, _ := endpoint.WatchPlan(func(*pubsub.Event) {
@@ -70,20 +114,23 @@ func TestShouldSetAgentBasedWatcherParamsInEndpointWatchPlan(t *testing.T) {
 
 	assert.Equal(t, "dc-foo-01", plan.Datacenter)
 	assert.Equal(t, "token-foo-01", plan.Token)
+	assert.Equal(t, "services", plan.Type)
 }
 
 func TestShouldSetEndpointWatchPlanHandler(t *testing.T) {
 	agent := &MockConsulAgent{}
 	agent.On("Locality").Return(&cpcore.Locality{Region: "foo-region"})
-	agent.On("CatalogServiceEndpoints", "foo-service").Return([]*api.CatalogService{{ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}, nil)
+	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{
+		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}},
+	}, nil)
 
-	endpoint := eds.NewEndpoint("foo-service", agent)
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 	var handlerCalled bool
 	var capture *cp.ClusterLoadAssignment
 	plan, _ := endpoint.WatchPlan(func(event *pubsub.Event) {
 		handlerCalled = true
-		capture = event.CLA
+		capture = event.CLA[0]
 	})
 
 	plan.Handler(112345, nil)

@@ -17,7 +17,7 @@ type CLAChan chan *cp.ClusterLoadAssignment
 type EventChan chan *Event
 
 type Event struct {
-	CLA      *cp.ClusterLoadAssignment
+	CLA      []*cp.ClusterLoadAssignment
 	Clusters []*cp.Cluster
 	Routes   []*cp.RouteConfiguration
 }

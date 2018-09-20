@@ -14,7 +14,7 @@ type agent struct {
 //ConsulAgent describes consul agent behaviour
 type ConsulAgent interface {
 	Locality() *cp.Locality
-	CatalogServiceEndpoints(serviceName string) ([]*api.CatalogService, error)
+	CatalogServiceEndpoints(serviceName ...string) ([][]*api.CatalogService, error)
 	WatchParams() map[string]string
 }
 
@@ -39,12 +39,19 @@ func (a agent) Locality() *cp.Locality {
 }
 
 //CatalogServiceEndpoints makes an api call to consul agent host and gets list of catalog services
-func (a agent) CatalogServiceEndpoints(serviceName string) ([]*api.CatalogService, error) {
+func (a agent) CatalogServiceEndpoints(serviceNames ...string) ([][]*api.CatalogService, error) {
 	catalog, err := a.catalog()
 	if err != nil {
 		return nil, err
 	}
-	services, _, err := catalog.Service(serviceName, "", nil)
+	var services [][]*api.CatalogService
+	for _, serviceName := range serviceNames {
+		catalogSvc, _, err := catalog.Service(serviceName, "", nil)
+		if err != nil {
+			return services, err
+		}
+		services = append(services, catalogSvc)
+	}
 	return services, err
 }
 

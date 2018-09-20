@@ -1,8 +1,9 @@
 package eds_test
 
 import (
-	"github.com/gojektech/consul-envoy-xds/eds"
 	"testing"
+
+	"github.com/gojektech/consul-envoy-xds/eds"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"

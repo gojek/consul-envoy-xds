@@ -1,8 +1,8 @@
 # consul-envoy-xds [![CircleCI](https://circleci.com/gh/gojektech/consul-envoy-xds.svg?style=svg)](https://circleci.com/gh/gojektech/consul-envoy-xds)
 
-consul-envoy-xds is an implementation of an Envoy Control Plane/xDiscovery Service via the [Envoy data plane API](https://github.com/envoyproxy/data-plane-api). It makes services registered with Consul available as endpoints through [EDS](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/eds.proto.html).
+consul-envoy-xds is an implementation of an Envoy Control Plane/xDiscovery Service via the [Envoy data plane API](https://github.com/envoyproxy/data-plane-api). It makes services registered with Consul available as upstreams through CDS, EDS and RDS.
 
-xDS is the set of APIs that control the Envoy dynamic configuration. A longer explanation is available on the [XDS Protocol](https://github.com/envoyproxy/data-plane-api/blob/master/XDS_PROTOCOL.md) page. Currently consul-envoy-xds implements only EDS, however other xDS are planned. In this implementation, the streaming version is available but the sync (Unary call) one is WIP.
+xDS is the set of APIs that control the Envoy dynamic configuration. A longer explanation is available on the [XDS Protocol](https://github.com/envoyproxy/data-plane-api/blob/master/XDS_PROTOCOL.md) page. Currently consul-envoy-xds implements CDS, EDS and RDS. In this implementation, the streaming version is available but the sync (Unary call) one is WIP.
 
 If you are using Consul for service discovery and would like to use Envoy without manual configuration, consul-envoy-xds can be used. It uses [Consul Watches](https://www.consul.io/docs/agent/watches.html) and any changes to endpoints are streamed to Envoy via the Control Plane.
 
@@ -27,7 +27,7 @@ If you are using Consul for service discovery and would like to use Envoy withou
 
 ## Using it
 
-Locally, the service can be configured by setting the environment variables in an `application.yml` file. When this file is unavailable, configuration is loaded from the environment variables. This is the recommended way to load configuration on production.
+Locally, the services can be configured by setting the environment variables in an `application.yml` file. When this file is unavailable, configuration is loaded from the environment variables. This is the recommended way to load configuration on production.
 
 ```
 PORT: 8053
@@ -36,12 +36,18 @@ CONSUL_CLIENT_PORT: 8500
 CONSUL_CLIENT_HOST: localhost
 CONSUL_DC: dc1
 CONSUL_TOKEN: ""
-WATCHED_SERVICE: foo-service
+WATCHED_SERVICE: foo-service,bar_svc
+FOO_SERVICE_WHITELISTED_ROUTES: /foo,/fuu
+BAR_SVC_WHITELISTED_ROUTES: /bar
 ```
+
+For above sample configuration, `consul-envoy-xds` will setup 2 clusters viz. foo-service and bar-svc. The foo-service cluster will have two routes in a virtual host i.e. `/foo` and `/fuu`. Similarly, bar_svc will have a route `/bar` into the same virtual host.
+
+Currently xDS server implementation configures single virtual host with routes for all upstream clusters based on <X>_WHITELISTED_ROUTES config. This implies no two services can have any whitelisted route with same prefix.
 
 Example entry point on production environments.
 
-`env PORT=8053 LOG_LEVEL=INFO CONSUL_AGENT_PORT=8500 CONSUL_CLIENT_HOST=localhost CONSUL_DC=dc1 CONSUL_TOKEN="" WATCHED_SERVICE=foo-service ./consul-envoy-xds`
+`env PORT=8053 LOG_LEVEL=INFO CONSUL_AGENT_PORT=8500 CONSUL_CLIENT_HOST=localhost CONSUL_DC=dc1 CONSUL_TOKEN="" WATCHED_SERVICE=foo-service,bar_svc BAR_SVC_WHITELISTED_ROUTES='/bar' FOO_SERVICE_WHITELISTED_ROUTES='/foo,/fuu' ./consul-envoy-xds`
 
 
 #### Sample Config:
@@ -80,7 +86,7 @@ static_resources:
       eds_config:
         api_config_source:
           api_type: GRPC
-          cluster_names: [xds_cluster]
+          cluster_names: [xds_cluster]         
   - name: xds_cluster
     connect_timeout: 0.25s
     type: STATIC

@@ -1,16 +1,18 @@
 package eds
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gojektech/consul-envoy-xds/agent"
 	"github.com/gojektech/consul-envoy-xds/pubsub"
 
+	"log"
+
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	eds "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
 )
 
@@ -18,92 +20,103 @@ import (
 type Endpoint interface {
 	Clusters() []*cp.Cluster
 	Routes() []*cp.RouteConfiguration
-	CLA() *cp.ClusterLoadAssignment
+	CLA() []*cp.ClusterLoadAssignment
 	WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error)
 }
 
 type service struct {
-	name  string
-	agent agent.ConsulAgent
+	services map[string]Service
+	agent    agent.ConsulAgent
 }
 
-func (s *service) getLbEndpoints() []eds.LbEndpoint {
-	hosts := make([]eds.LbEndpoint, 0)
-	services, _ := s.agent.CatalogServiceEndpoints(s.name)
+func (s *service) serviceNames() []string {
+	names := []string{}
+	for k, _ := range s.services {
+		names = append(names, k)
+	}
+	return names
+}
+
+func (s *service) getLbEndpoints(services []*api.CatalogService) []eds.LbEndpoint {
+	var hosts []eds.LbEndpoint
 	for _, s := range services {
 		hosts = append(hosts, NewServiceHost(s).LbEndpoint())
 	}
 	return hosts
 }
 
-func (s *service) getLocalityEndpoints() []eds.LocalityLbEndpoints {
-	return []eds.LocalityLbEndpoints{{Locality: s.agent.Locality(), LbEndpoints: s.getLbEndpoints()}}
-}
+func (s *service) CLA() []*cp.ClusterLoadAssignment {
+	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	log.Printf("discovered services from consul catalog for EDS: %v", serviceList)
 
-func (s *service) claPolicy() *cp.ClusterLoadAssignment_Policy {
-	return &cp.ClusterLoadAssignment_Policy{DropOverload: 0.0}
-}
-
-func (s *service) clusterName() string {
-	return s.name
-}
-
-func (s *service) CLA() *cp.ClusterLoadAssignment {
-	return &cp.ClusterLoadAssignment{Endpoints: s.getLocalityEndpoints(), ClusterName: s.clusterName(), Policy: s.claPolicy()}
+	var cLAs []*cp.ClusterLoadAssignment
+	for _, services := range serviceList {
+		if len(services) > 0 {
+			cLAs = append(cLAs, &cp.ClusterLoadAssignment{
+				ClusterName: services[0].ServiceName,
+				Policy: &cp.ClusterLoadAssignment_Policy{
+					DropOverload: 0.0,
+				},
+				Endpoints: []eds.LocalityLbEndpoints{{
+					Locality:    s.agent.Locality(),
+					LbEndpoints: s.getLbEndpoints(services),
+				}},
+			})
+		}
+	}
+	return cLAs
 }
 
 func (s *service) Clusters() []*cp.Cluster {
-	services, _ := s.agent.CatalogServiceEndpoints(s.name)
-	if len(services) > 0 {
-		return []*cp.Cluster{&cp.Cluster{
-			Name:              fmt.Sprintf("%s", services[0].ServiceName),
-			Type:              cp.Cluster_EDS,
-			ConnectTimeout:    1 * time.Second,
-			ProtocolSelection: cp.Cluster_USE_DOWNSTREAM_PROTOCOL,
-			EdsClusterConfig: &cp.Cluster_EdsClusterConfig{
-				EdsConfig: &cpcore.ConfigSource{
-					ConfigSourceSpecifier: &cpcore.ConfigSource_Ads{
-						Ads: &cpcore.AggregatedConfigSource{},
+	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	log.Printf("discovered services from consul catalog for CDS: %v", serviceList)
+
+	var clusters []*cp.Cluster
+	for _, services := range serviceList {
+		if len(services) > 0 {
+			clusters = append(clusters, &cp.Cluster{
+				Name:              services[0].ServiceName,
+				Type:              cp.Cluster_EDS,
+				ConnectTimeout:    1 * time.Second,
+				ProtocolSelection: cp.Cluster_USE_DOWNSTREAM_PROTOCOL,
+				EdsClusterConfig: &cp.Cluster_EdsClusterConfig{
+					EdsConfig: &cpcore.ConfigSource{
+						ConfigSourceSpecifier: &cpcore.ConfigSource_Ads{
+							Ads: &cpcore.AggregatedConfigSource{},
+						},
 					},
 				},
-			},
-		}}
+			})
+		}
 	}
-	return []*cp.Cluster{}
+	return clusters
 }
 
 func (s *service) Routes() []*cp.RouteConfiguration {
-	services, _ := s.agent.CatalogServiceEndpoints(s.name)
-	if len(services) > 0 {
-		return []*cp.RouteConfiguration{&cp.RouteConfiguration{
-			Name: "local_route",
-			VirtualHosts: []route.VirtualHost{route.VirtualHost{
-				Name:    "local_service",
-				Domains: []string{"*"},
-				Routes: []route.Route{route.Route{
-					Match: route.RouteMatch{
-						PathSpecifier: &route.RouteMatch_Prefix{
-							Prefix: "/",
-						},
-					},
-					Action: &route.Route_Route{
-						Route: &route.RouteAction{
-							ClusterSpecifier: &route.RouteAction_Cluster{
-								Cluster: fmt.Sprintf("%s", services[0].ServiceName),
-							},
-						},
-					},
-				}},
-			}},
-		}}
+	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	log.Printf("discovered services from consul catalog for RDS: %v", serviceList)
+
+	var routes []route.Route
+	for _, services := range serviceList {
+		if len(services) > 0 {
+			name := services[0].ServiceName
+			routes = append(routes, getRoutes(name, s.services[name].Whitelist)...)
+		}
 	}
-	return []*cp.RouteConfiguration{}
+	routeConfig := &cp.RouteConfiguration{
+		Name: "local_route",
+		VirtualHosts: []route.VirtualHost{{
+			Name:    "local_service",
+			Domains: []string{"*"},
+			Routes:  routes,
+		}},
+	}
+	return []*cp.RouteConfiguration{routeConfig}
 }
 
 func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 	plan, err := watch.Parse(map[string]interface{}{
-		"type":       "service",
-		"service":    s.clusterName(),
+		"type":       "services",
 		"datacenter": s.agent.WatchParams()["datacenter"],
 		"token":      s.agent.WatchParams()["token"],
 	})
@@ -112,13 +125,41 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 		return nil, err
 	}
 	plan.Handler = func(idx uint64, data interface{}) {
-		println("consul watch triggerred")
+		log.Println("consul watch triggerred")
 		publish(&pubsub.Event{CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
 	}
 	return plan, nil
 }
 
+func getRoutes(cluster string, pathPrefixes []string) []route.Route {
+	var routes []route.Route
+	for _, pathPrefix := range pathPrefixes {
+		routes = append(routes, route.Route{
+			Match: route.RouteMatch{
+				PathSpecifier: &route.RouteMatch_Prefix{
+					Prefix: pathPrefix,
+				},
+			},
+			Action: &route.Route_Route{
+				Route: &route.RouteAction{
+					ClusterSpecifier: &route.RouteAction_Cluster{
+						Cluster: cluster,
+					},
+				},
+			},
+		})
+	}
+	return routes
+}
+
 //NewEndpoint creates an ServiceEndpoint representation
-func NewEndpoint(name string, a agent.ConsulAgent) Endpoint {
-	return &service{name: name, agent: a}
+func NewEndpoint(services []Service, a agent.ConsulAgent) Endpoint {
+	svcMap := map[string]Service{}
+	for _, s := range services {
+		svcMap[s.Name] = s
+	}
+	return &service{
+		services: svcMap,
+		agent:    a,
+	}
 }

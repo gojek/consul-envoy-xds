@@ -39,3 +39,7 @@ func (sw ServiceWatch) Run(errorChannel chan error) {
 		errorChannel <- err
 	}
 }
+
+func (sw ServiceWatch) Stop() {
+	sw.plan.Stop()
+}
