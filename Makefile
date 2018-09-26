@@ -7,6 +7,11 @@ UNIT_TEST_PACKAGES=$(shell go list ./... | grep -v "featuretests")
 
 APP_EXECUTABLE="./out/$(APP)"
 
+setup-circleci:
+	sudo apt-get install unzip
+	wget https://releases.hashicorp.com/consul/1.2.3/consul_1.2.3_linux_amd64.zip
+	sudo unzip consul_1.2.3_linux_amd64.zip -d /usr/local/bin	
+
 setup:
 	go get -u github.com/golang/lint/golint
 	go get github.com/DATA-DOG/godog/cmd/godog
