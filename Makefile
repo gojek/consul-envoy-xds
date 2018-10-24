@@ -13,7 +13,7 @@ setup-circleci:
 	sudo unzip consul_1.2.3_linux_amd64.zip -d /usr/local/bin	
 
 setup:
-	go get -u github.com/golang/lint/golint
+	go get -u golang.org/x/lint/golint
 	go get github.com/DATA-DOG/godog/cmd/godog
 	go get -u github.com/go-playground/overalls
 	go get -u github.com/golang/dep/cmd/dep

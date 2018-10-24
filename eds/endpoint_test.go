@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/gojektech/consul-envoy-xds/config"
 )
 
 type MockConsulAgent struct {
@@ -39,11 +40,47 @@ func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 		{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234},
 		{ServiceName: "foo-service", ServiceAddress: "foo2", ServicePort: 1234}}},
 		nil)
-	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent, httpRateLimitConfig)
 	clusters := endpoint.Clusters()
 
 	assert.Equal(t, "foo-service", clusters[0].Name)
 	assert.Equal(t, cp.Cluster_USE_DOWNSTREAM_PROTOCOL, clusters[0].ProtocolSelection)
+}
+
+func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
+	agent := &MockConsulAgent{}
+	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{[]*api.CatalogService{
+		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
+		nil)
+
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: true, HeaderName: "authorization", DescriptorKey: "auth_token"}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent, httpRateLimitConfig)
+
+	routeConfig := endpoint.Routes()
+	virtualHosts := routeConfig[0].GetVirtualHosts()
+	assert.Equal(t, "local_route", routeConfig[0].GetName())
+	assert.Equal(t, []string{"*"}, virtualHosts[0].GetDomains())
+
+	actionSpecifier := route.RateLimit_Action_RequestHeaders_{
+		RequestHeaders: &route.RateLimit_Action_RequestHeaders{
+			HeaderName:    "authorization",
+			DescriptorKey: "auth_token",
+		},
+	}
+
+	routeAction := route.RateLimit_Action{
+		ActionSpecifier: &actionSpecifier,
+	}
+
+	rateLimit := &route.RateLimit{
+		Actions: []*route.RateLimit_Action{&routeAction},
+	}
+
+	var rateLimits []*route.RateLimit
+	rateLimits = append(rateLimits, rateLimit)
+
+	assert.ElementsMatch(t, rateLimits, virtualHosts[0].RateLimits)
 }
 
 func TestMultipleRouteConfiguration(t *testing.T) {
@@ -51,7 +88,8 @@ func TestMultipleRouteConfiguration(t *testing.T) {
 	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{[]*api.CatalogService{
 		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
 		nil)
-	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent)
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent, httpRateLimitConfig)
 
 	routeConfig := endpoint.Routes()
 	virtualHosts := routeConfig[0].GetVirtualHosts()
@@ -93,7 +131,8 @@ func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
 		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}},
 		nil,
 	)
-	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent, httpRateLimitConfig)
 	cla := endpoint.CLA()[0]
 
 	assert.Equal(t, "foo-service", cla.ClusterName)
@@ -106,7 +145,8 @@ func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
 
 func TestShouldSetAgentBasedWatcherParamsInEndpointWatchPlan(t *testing.T) {
 	agent := &MockConsulAgent{}
-	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent, httpRateLimitConfig)
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 
 	plan, _ := endpoint.WatchPlan(func(*pubsub.Event) {
@@ -124,7 +164,8 @@ func TestShouldSetEndpointWatchPlanHandler(t *testing.T) {
 		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}},
 	}, nil)
 
-	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent)
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent, httpRateLimitConfig)
 	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
 	var handlerCalled bool
 	var capture *cp.ClusterLoadAssignment
