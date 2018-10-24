@@ -14,6 +14,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
+	"github.com/gojektech/consul-envoy-xds/config"
 )
 
 //Endpoint is an agent catalog service
@@ -25,8 +26,9 @@ type Endpoint interface {
 }
 
 type service struct {
-	services map[string]Service
-	agent    agent.ConsulAgent
+	services            map[string]Service
+	agent               agent.ConsulAgent
+	httpRateLimitConfig *config.HTTPHeaderRateLimitConfig
 }
 
 func (s *service) serviceNames() []string {
@@ -109,6 +111,7 @@ func (s *service) Routes() []*cp.RouteConfiguration {
 			Name:    "local_service",
 			Domains: []string{"*"},
 			Routes:  routes,
+			RateLimits: getRateLimits(s.httpRateLimitConfig),
 		}},
 	}
 	return []*cp.RouteConfiguration{routeConfig}
@@ -152,8 +155,35 @@ func getRoutes(cluster string, pathPrefixes []string) []route.Route {
 	return routes
 }
 
+func getRateLimits(httpRateLimitConfig *config.HTTPHeaderRateLimitConfig) []*route.RateLimit {
+	var rateLimits []*route.RateLimit
+
+	if httpRateLimitConfig.IsEnabled {
+		rateLimits = append(rateLimits, getHTTPHeaderRateLimit(httpRateLimitConfig))
+	}
+
+	return rateLimits
+}
+
+func getHTTPHeaderRateLimit(httpRateLimitConfig *config.HTTPHeaderRateLimitConfig) *route.RateLimit {
+	actionSpecifier := route.RateLimit_Action_RequestHeaders_{
+		RequestHeaders: &route.RateLimit_Action_RequestHeaders{
+			HeaderName:    httpRateLimitConfig.HeaderName,
+			DescriptorKey: httpRateLimitConfig.DescriptorKey,
+		},
+	}
+
+	routeAction := route.RateLimit_Action{
+		ActionSpecifier: &actionSpecifier,
+	}
+
+	return &route.RateLimit{
+		Actions: []*route.RateLimit_Action{&routeAction},
+	}
+}
+
 //NewEndpoint creates an ServiceEndpoint representation
-func NewEndpoint(services []Service, a agent.ConsulAgent) Endpoint {
+func NewEndpoint(services []Service, a agent.ConsulAgent, httpRateLimitConfig *config.HTTPHeaderRateLimitConfig) Endpoint {
 	svcMap := map[string]Service{}
 	for _, s := range services {
 		svcMap[s.Name] = s
@@ -161,5 +191,6 @@ func NewEndpoint(services []Service, a agent.ConsulAgent) Endpoint {
 	return &service{
 		services: svcMap,
 		agent:    a,
+		httpRateLimitConfig: httpRateLimitConfig,
 	}
 }

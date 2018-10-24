@@ -6,10 +6,17 @@ import (
 	"strings"
 
 	"github.com/gojek-engineering/goconfig"
+	"strconv"
 )
 
 type Config struct {
 	goconfig.BaseConfig
+}
+
+type HTTPHeaderRateLimitConfig struct {
+	IsEnabled     bool
+	HeaderName    string
+	DescriptorKey string
 }
 
 func Load() *Config {
@@ -48,6 +55,22 @@ func (cfg *Config) ConsulDC() string {
 
 func (cfg *Config) WatchedServices() []string {
 	return strings.Split(cfg.GetValue("WATCHED_SERVICE"), ",")
+}
+
+func (cfg *Config) GetHTTPHeaderRateLimitConfig() *HTTPHeaderRateLimitConfig {
+	isEnableString := cfg.GetOptionalValue("HTTP_HEADER_RATE_LIMIT_ENABLED", "false")
+	name := cfg.GetOptionalValue("HTTP_HEADER_RATE_LIMIT_NAME", "")
+	descriptor := cfg.GetOptionalValue("HTTP_HEADER_RATE_LIMIT_DESCRIPTOR", "")
+	isEnable, err := strconv.ParseBool(isEnableString)
+	if err != nil {
+		isEnable = false
+	}
+
+	return &HTTPHeaderRateLimitConfig{
+		IsEnabled:     isEnable,
+		HeaderName:    name,
+		DescriptorKey: descriptor,
+	}
 }
 
 func (cfg *Config) WhitelistedRoutes(svc string) []string {

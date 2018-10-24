@@ -31,7 +31,7 @@ func Start() {
 		})
 	}
 
-	svc := eds.NewEndpoint(services, agent.NewAgent(cfg.ConsulAddress(), cfg.ConsulToken(), cfg.ConsulDC()))
+	svc := eds.NewEndpoint(services, agent.NewAgent(cfg.ConsulAddress(), cfg.ConsulToken(), cfg.ConsulDC()), cfg.GetHTTPHeaderRateLimitConfig())
 	w, err := edswatch.NewWatch(cfg.ConsulAddress(), svc, hub)
 	if err != nil {
 		log.Printf("failed to register watch: %v\n", err)
