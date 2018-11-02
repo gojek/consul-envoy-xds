@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"log"
 	"sync"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -37,6 +38,7 @@ func (h *hub) Subscribe() *Subscription {
 }
 
 func (h *hub) Publish(event *Event) {
+	log.Println("received event on hub")
 	h.subscriptions.Range(func(id, subscription interface{}) bool {
 		subscription.(*Subscription).Accept(event)
 		return true

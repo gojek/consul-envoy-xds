@@ -1,6 +1,7 @@
 package eds
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gojektech/consul-envoy-xds/agent"
@@ -125,7 +126,7 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 		return nil, err
 	}
 	plan.Handler = func(idx uint64, data interface{}) {
-		log.Println("consul watch triggerred")
+		log.Println(fmt.Sprintf("consul watch triggerred: %v", data))
 		publish(&pubsub.Event{CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
 	}
 	return plan, nil

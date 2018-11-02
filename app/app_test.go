@@ -2,11 +2,14 @@ package app_test
 
 import (
 	"context"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,12 +50,6 @@ func TestPushToEnvoyWhenConsulWatchTriggers(t *testing.T) {
 	defer app.Stop()
 	waitForAppToStart(xdsPort)
 
-	testSvc1 := startTestSvc(consulClient, "testSvc1")
-	defer testSvc1.Close()
-
-	testSvc2 := startTestSvc(consulClient, "testSvc2")
-	defer testSvc2.Close()
-
 	conn, _ := grpc.Dial("localhost:"+strconv.Itoa(xdsPort), grpc.WithInsecure())
 	defer conn.Close()
 	xDSClient := dis.NewAggregatedDiscoveryServiceClient(conn)
@@ -60,19 +57,27 @@ func TestPushToEnvoyWhenConsulWatchTriggers(t *testing.T) {
 	assert.NoError(t, err)
 
 	var messages []google_protobuf5.Any
-	for i := 0; i < 3; i++ {
-		res, err := stream.Recv()
-		assert.NoError(t, err)
-		messages = append(messages, res.GetResources()...)
-	}
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err != nil {
+				return
+			}
+			messages = append(messages, res.GetResources()...)
+		}
+	}()
 
-	assertCluster(t, messages, "testSvc1")
-	assertCLA(t, messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
+	testSvc1 := startTestSvc(consulClient, "testSvc1")
+	defer testSvc1.Close()
 
-	assertCluster(t, messages, "testSvc2")
-	assertCLA(t, messages, "testSvc2", testSvc2.Listener.Addr().(*net.TCPAddr).Port)
+	testSvc2 := startTestSvc(consulClient, "testSvc2")
+	defer testSvc2.Close()
 
-	assertRouteConfig(t, messages, []string{"testSvc1", "testSvc2"}, [][]string{[]string{"/foo", "/bar"}, []string{"/hoo", "/car"}})
+	assertCluster(t, &messages, "testSvc1")
+	assertCLA(t, &messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
+	assertCluster(t, &messages, "testSvc2")
+	assertCLA(t, &messages, "testSvc2", testSvc2.Listener.Addr().(*net.TCPAddr).Port)
+	assertRouteConfig(t, &messages, []string{"testSvc1", "testSvc2"}, [][]string{[]string{"/foo", "/bar"}, []string{"/hoo", "/car"}})
 }
 
 func TestRespondToEnvoyOnRequest(t *testing.T) {
@@ -94,37 +99,35 @@ func TestRespondToEnvoyOnRequest(t *testing.T) {
 	defer app.Stop()
 	waitForAppToStart(xdsPort)
 
-	testSvc1 := startTestSvc(consulClient, "testSvc1")
-	defer testSvc1.Close()
-
 	conn, _ := grpc.Dial("localhost:"+strconv.Itoa(xdsPort), grpc.WithInsecure())
 	defer conn.Close()
 	xDSClient := dis.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := xDSClient.StreamAggregatedResources(context.Background())
 	assert.NoError(t, err)
 
-	// flush incoming messages
-	for i := 0; i < 3; i++ {
-		stream.Recv()
-	}
+	var messages []google_protobuf5.Any
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err != nil {
+				return
+			}
+			messages = append(messages, res.GetResources()...)
+		}
+	}()
+
+	testSvc1 := startTestSvc(consulClient, "testSvc1")
+	defer testSvc1.Close()
 
 	stream.Send(&cp.DiscoveryRequest{})
 	stream.CloseSend()
 
-	var messages []google_protobuf5.Any
-	for i := 0; i < 3; i++ {
-		res, err := stream.Recv()
-		assert.NoError(t, err)
-		messages = append(messages, res.GetResources()...)
-	}
-
-	assertCluster(t, messages, "testSvc1")
-	assertCLA(t, messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
-
-	assertRouteConfig(t, messages, []string{"testSvc1"}, [][]string{[]string{"/"}})
+	assertCluster(t, &messages, "testSvc1")
+	assertCLA(t, &messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
+	assertRouteConfig(t, &messages, []string{"testSvc1"}, [][]string{[]string{"/"}})
 }
 
-func assertRouteConfig(t *testing.T, messages []google_protobuf5.Any, clusters []string, routeList [][]string) {
+func assertRouteConfig(t *testing.T, messages *[]google_protobuf5.Any, clusters []string, routeList [][]string) bool {
 	var routes []route.Route
 	for i, cluster := range clusters {
 		for _, pathPrefix := range routeList[i] {
@@ -152,10 +155,13 @@ func assertRouteConfig(t *testing.T, messages []google_protobuf5.Any, clusters [
 			Routes:  routes,
 		}},
 	})
-	assert.Contains(t, messages, *routeConfig)
+	await(func() bool {
+		return IncludeElement(*messages, *routeConfig)
+	})
+	return assert.Contains(t, *messages, *routeConfig)
 }
 
-func assertCLA(t *testing.T, messages []google_protobuf5.Any, cluster string, port int) {
+func assertCLA(t *testing.T, messages *[]google_protobuf5.Any, cluster string, port int) bool {
 	cla, _ := google_protobuf5.MarshalAny(&cp.ClusterLoadAssignment{Endpoints: []eds.LocalityLbEndpoints{{
 		Locality: &cpcore.Locality{
 			Region: "dc1",
@@ -175,10 +181,13 @@ func assertCLA(t *testing.T, messages []google_protobuf5.Any, cluster string, po
 					},
 				}}}},
 	}}, ClusterName: cluster, Policy: &cp.ClusterLoadAssignment_Policy{DropOverload: 0.0}})
-	assert.Contains(t, messages, *cla)
+	await(func() bool {
+		return IncludeElement(*messages, *cla)
+	})
+	return assert.Contains(t, *messages, *cla)
 }
 
-func assertCluster(t *testing.T, messages []google_protobuf5.Any, name string) {
+func assertCluster(t *testing.T, messages *[]google_protobuf5.Any, name string) bool {
 	cluster, _ := google_protobuf5.MarshalAny(&cp.Cluster{
 		Name:              name,
 		Type:              cp.Cluster_EDS,
@@ -192,7 +201,10 @@ func assertCluster(t *testing.T, messages []google_protobuf5.Any, name string) {
 			},
 		},
 	})
-	assert.Contains(t, messages, *cluster)
+	await(func() bool {
+		return IncludeElement(*messages, *cluster)
+	})
+	return assert.Contains(t, *messages, *cluster)
 }
 
 func startTestSvc(consulClient *consulapi.Client, name string) *httptest.Server {
@@ -227,4 +239,42 @@ func retry(attempts int, sleep time.Duration, fn func() error) error {
 		return err
 	}
 	return nil
+}
+
+func IncludeElement(list interface{}, element interface{}) (found bool) {
+
+	listValue := reflect.ValueOf(list)
+	elementValue := reflect.ValueOf(element)
+
+	if reflect.TypeOf(list).Kind() == reflect.String {
+		return strings.Contains(listValue.String(), elementValue.String())
+	}
+
+	if reflect.TypeOf(list).Kind() == reflect.Map {
+		mapKeys := listValue.MapKeys()
+		for i := 0; i < len(mapKeys); i++ {
+			if assert.ObjectsAreEqual(mapKeys[i].Interface(), element) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for i := 0; i < listValue.Len(); i++ {
+		if assert.ObjectsAreEqual(listValue.Index(i).Interface(), element) {
+			return true
+		}
+	}
+	return false
+}
+
+func await(f func() bool) bool {
+	for i := 0; i < 1000; i++ {
+		if f() {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	log.Println("timeout waiting for condition")
+	return false
 }
