@@ -6,22 +6,26 @@ import (
 
 	"time"
 
+	"context"
+
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	dis "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/gojektech/consul-envoy-xds/eventctx"
+	"github.com/newrelic/go-agent"
 )
 
 type EndpointDiscoveryResponseStream interface {
-	SendEDS([]*cp.ClusterLoadAssignment) error
+	SendEDS(context.Context, []*cp.ClusterLoadAssignment) error
 }
 
 type ClusterDiscoveryResponseStream interface {
-	SendCDS([]*cp.Cluster) error
+	SendCDS(context.Context, []*cp.Cluster) error
 }
 
 type RouteDiscoveryResponseStream interface {
-	SendRDS([]*cp.RouteConfiguration) error
+	SendRDS(context.Context, []*cp.RouteConfiguration) error
 }
 
 //DiscoveryResponseStream is an xDS Stream wrapper and wraps grpc stream API and pipes DiscoveryResponse events to it.
@@ -38,7 +42,7 @@ type responseStream struct {
 }
 
 //Send a CLA on current stream
-func (streamer *responseStream) SendEDS(cLAList []*cp.ClusterLoadAssignment) error {
+func (streamer *responseStream) SendEDS(ctx context.Context, cLAList []*cp.ClusterLoadAssignment) error {
 	var resources []types.Any
 	for _, cLA := range cLAList {
 		data, err := proto.Marshal(cLA)
@@ -57,7 +61,7 @@ func (streamer *responseStream) SendEDS(cLAList []*cp.ClusterLoadAssignment) err
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
 	}
-	streamer.stream.Send(resp)
+	streamer.send(ctx, resp)
 	log.Printf("sent EDS on stream: %v", resp)
 	streamer.version = time.Now().UnixNano()
 	streamer.nonce = time.Now().UnixNano()
@@ -65,7 +69,7 @@ func (streamer *responseStream) SendEDS(cLAList []*cp.ClusterLoadAssignment) err
 }
 
 //Send a Cluster on current stream
-func (streamer *responseStream) SendCDS(clusters []*cp.Cluster) error {
+func (streamer *responseStream) SendCDS(ctx context.Context, clusters []*cp.Cluster) error {
 	if len(clusters) == 0 {
 		return nil
 	}
@@ -87,7 +91,7 @@ func (streamer *responseStream) SendCDS(clusters []*cp.Cluster) error {
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.Cluster",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
 	}
-	streamer.stream.Send(resp)
+	streamer.send(ctx, resp)
 	log.Printf("sent CDS on stream: %v", resp)
 	streamer.version = time.Now().UnixNano()
 	streamer.nonce = time.Now().UnixNano()
@@ -95,7 +99,7 @@ func (streamer *responseStream) SendCDS(clusters []*cp.Cluster) error {
 }
 
 //Send a Cluster on current stream
-func (streamer *responseStream) SendRDS(routeConfig []*cp.RouteConfiguration) error {
+func (streamer *responseStream) SendRDS(ctx context.Context, routeConfig []*cp.RouteConfiguration) error {
 	if len(routeConfig) == 0 {
 		return nil
 	}
@@ -117,11 +121,18 @@ func (streamer *responseStream) SendRDS(routeConfig []*cp.RouteConfiguration) er
 		TypeUrl:     "type.googleapis.com/envoy.api.v2.RouteConfiguration",
 		Nonce:       strconv.FormatInt(int64(streamer.nonce), 10),
 	}
-	streamer.stream.Send(resp)
+	streamer.send(ctx, resp)
 	log.Printf("sent RDS on stream: %v", resp)
 	streamer.version = time.Now().UnixNano()
 	streamer.nonce = time.Now().UnixNano()
 	return nil
+}
+
+func (streamer *responseStream) send(ctx context.Context, resp *cp.DiscoveryResponse) error {
+	txn := eventctx.NewRelicTxn(ctx)
+	seg := newrelic.StartSegment(txn, resp.GetTypeUrl())
+	defer seg.End()
+	return streamer.stream.Send(resp)
 }
 
 //NewDiscoveryResponseStream creates a DiscoveryResponseStream

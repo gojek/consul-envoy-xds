@@ -5,3 +5,4 @@ CONSUL_CLIENT_HOST: localhost
 CONSUL_DC: dc1
 CONSUL_TOKEN: ""
 WATCHED_SERVICE: foo-service
+NEW_RELIC_LICENSE_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
