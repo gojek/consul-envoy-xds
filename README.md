@@ -98,3 +98,87 @@ admin:
   address:
     socket_address: { address: 127.0.0.1, port_value: 9901 }
 ```
+
+## Using it with Rate Limitter
+
+Example config with HTTP Header Rate Limit:
+```
+HTTP_HEADER_RATE_LIMIT_ENABLED: true
+HTTP_HEADER_RATE_LIMIT_DESCRIPTOR: "user_id"
+HTTP_HEADER_RATE_LIMIT_NAME: "User-Id"
+```
+
+For above sample configuration, `consul-envoy-xds` will add ratelimit in returned routes configuration based on Http Header. Later you need to implement envoy global gRPC rate limiting service. Refer to [Envoy Rate Limit](https://github.com/lyft/ratelimit).
+
+#### Sample Config with Rate Limit:
+
+```yaml
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 443 }
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/" }
+                route: { cluster: foo-service }
+          http_filters:
+          - name: envoy.router
+  clusters:
+  - name: foo-service
+    connect_timeout: 0.25s
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options: {}
+    type: EDS
+    eds_cluster_config:
+      eds_config:
+        api_config_source:
+          api_type: GRPC
+          cluster_names: [xds_cluster]
+
+  - name: rate_limit_cluster
+    connect_timeout: 0.250s
+    http2_protocol_options: {}
+    hosts:
+    - socket_address:
+      address: $RATE_LIMIT_IP
+      port_value: $RATE_LIMIT_PORT
+    dns_lookup_family: V4_ONLY
+    health_checks:
+    - timeout:
+        seconds: 1
+      interval:
+        seconds: 1
+      unhealthy_threshold: 3
+      healthy_threshold: 3
+      grpc_health_check:
+        service_name: $RATE_LIMIT_SERVICE_NAME
+
+  - name: xds_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    http2_protocol_options: {}
+    hosts: [{ socket_address: { address: $XDS_IP, port_value: $XDS_PORT }}]
+
+rate_limit_service:
+  grpc_service:
+    envoy_grpc:
+      cluster_name: rate_limit_cluster
+    timeout: 0.25s
+
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address: { address: 127.0.0.1, port_value: 9901 }
+```
