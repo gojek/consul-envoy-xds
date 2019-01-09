@@ -31,7 +31,8 @@ func (es *subscriptionStream) Stream() error {
 				return
 			}
 			if err != nil {
-				// log.Printf("failed to receive message on stream: %v", err)
+				log.Printf("failed to receive message on stream: %v", err)
+				return
 			} else if in.VersionInfo == "" {
 				log.Printf("received discovery request on stream: %v", in)
 				es.hub.Publish(&pubsub.Event{CLA: es.service.CLA(), Clusters: es.service.Clusters(), Routes: es.service.Routes()})
@@ -45,7 +46,11 @@ func (es *subscriptionStream) Stream() error {
 		responseStream := NewDiscoveryResponseStream(es.stream)
 		for {
 			select {
-			case e := <-es.subscription.Events:
+			case e, open := <-es.subscription.Events:
+				if !open {
+					log.Printf("Stopped listening to events channel since it has been closed")
+					return
+				}
 				if e != nil {
 					responseStream.SendCDS(e.Clusters)
 					responseStream.SendRDS(e.Routes)
