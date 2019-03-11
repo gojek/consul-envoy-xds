@@ -50,9 +50,6 @@ func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 
 func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{{
-		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
-		nil)
 
 	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: true, HeaderName: "authorization", DescriptorKey: "auth_token"}
 	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent, httpRateLimitConfig)
@@ -85,9 +82,6 @@ func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
 
 func TestMultipleRouteConfiguration(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{{
-		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
-		nil)
 	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
 	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"/hoo", "/bar"}}}, agent, httpRateLimitConfig)
 
@@ -95,6 +89,8 @@ func TestMultipleRouteConfiguration(t *testing.T) {
 	virtualHosts := routeConfig[0].GetVirtualHosts()
 	assert.Equal(t, "local_route", routeConfig[0].GetName())
 	assert.Equal(t, []string{"*"}, virtualHosts[0].GetDomains())
+	assert.Equal(t, 1, len(virtualHosts))
+	assert.Equal(t, 2, len(virtualHosts[0].GetRoutes()))
 	assert.ElementsMatch(t, []route.Route{{
 		Match: route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_Prefix{

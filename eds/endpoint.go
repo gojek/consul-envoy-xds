@@ -101,15 +101,9 @@ func (s *service) Clusters() []*cp.Cluster {
 }
 
 func (s *service) Routes() []*cp.RouteConfiguration {
-	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
-	log.Printf("discovered services from consul catalog for RDS: %v", serviceList)
-
 	var routes []route.Route
-	for _, services := range serviceList {
-		if len(services) > 0 {
-			name := services[0].ServiceName
-			routes = append(routes, getRoutes(name, s.services[name].Whitelist)...)
-		}
+	for _, serviceName := range s.serviceNames() {
+		routes = append(routes, getRoutes(serviceName, s.services[serviceName].Whitelist)...)
 	}
 	routeConfig := &cp.RouteConfiguration{
 		Name: "local_route",
