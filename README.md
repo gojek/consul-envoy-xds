@@ -49,6 +49,25 @@ Example entry point on production environments.
 
 `env PORT=8053 LOG_LEVEL=INFO CONSUL_AGENT_PORT=8500 CONSUL_CLIENT_HOST=localhost CONSUL_DC=dc1 CONSUL_TOKEN="" WATCHED_SERVICE=foo-service,bar_svc BAR_SVC_WHITELISTED_ROUTES='/bar' FOO_SERVICE_WHITELISTED_ROUTES='/foo,/fuu' ./consul-envoy-xds`
 
+##### Configuring Regex Paths:
+
+If you have url params in the routes that needs to be whitelisted, you can use use regex in the path. To specify regex path in the whitelisted routes, use this notion: `%regex:some_route`
+
+Example:
+
+Let's say you have REST endpoint for serving customer details with customer id in the path: `/foo/{customer-id}/details`. To whitelist this path, you can:
+```
+WATCHED_SERVICE: foo-service
+FOO_SERVICE_WHITELISTED_ROUTES: %regex:/foo/customer/[0-9]*/details,/fuu
+```
+
+If you have more than one path which has regex:
+```
+WATCHED_SERVICE: foo-service
+FOO_SERVICE_WHITELISTED_ROUTES: %regex:/foo/customer/[0-9]*/details,%regex:/fuu/[0-9A-Z]*/id
+```
+
+refer to [Regex documentation](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/route/route.proto#envoy-api-field-route-routematch-regex) for the regex pattern
 
 #### Sample Config:
 

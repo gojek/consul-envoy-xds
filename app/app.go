@@ -23,7 +23,7 @@ func Start() {
 	hub := pubsub.NewHub()
 	svcCfg := cfg.WatchedServices()
 
-	services := []eds.Service{}
+	var services []eds.Service
 	for _, s := range svcCfg {
 		services = append(services, eds.Service{
 			Name:      s,

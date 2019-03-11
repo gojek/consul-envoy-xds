@@ -41,9 +41,9 @@ func TestPushToEnvoyWhenConsulWatchTriggers(t *testing.T) {
 	defer os.Unsetenv("CONSUL_CLIENT_PORT")
 	os.Setenv("WATCHED_SERVICE", "testSvc1,testSvc2")
 	defer os.Unsetenv("WATCHED_SERVICE")
-	os.Setenv("TESTSVC1_WHITELISTED_ROUTES", "/foo,/bar")
+	os.Setenv("TESTSVC1_WHITELISTED_ROUTES", "/foo,%regex:/bar")
 	defer os.Unsetenv("TESTSVC1_WHITELISTED_ROUTES")
-	os.Setenv("TESTSVC2_WHITELISTED_ROUTES", "/hoo,/car")
+	os.Setenv("TESTSVC2_WHITELISTED_ROUTES", "%regex:/hoo,/car")
 	defer os.Unsetenv("TESTSVC2_WHITELISTED_ROUTES")
 
 	go app.Start()
@@ -77,7 +77,13 @@ func TestPushToEnvoyWhenConsulWatchTriggers(t *testing.T) {
 	assertCLA(t, &messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
 	assertCluster(t, &messages, "testSvc2")
 	assertCLA(t, &messages, "testSvc2", testSvc2.Listener.Addr().(*net.TCPAddr).Port)
-	assertRouteConfig(t, &messages, []string{"testSvc1", "testSvc2"}, [][]string{[]string{"/foo", "/bar"}, []string{"/hoo", "/car"}})
+	expectedRoutes := []route.Route{
+		routeWithPathPrefix("testSvc1", "/foo"),
+		routeWithRegexPath("testSvc1", "/bar"),
+		routeWithRegexPath("testSvc2", "/hoo"),
+		routeWithPathPrefix("testSvc2", "/car"),
+	}
+	assertRouteConfig(t, messages, expectedRoutes)
 }
 
 func TestRespondToEnvoyOnRequest(t *testing.T) {
@@ -124,29 +130,10 @@ func TestRespondToEnvoyOnRequest(t *testing.T) {
 
 	assertCluster(t, &messages, "testSvc1")
 	assertCLA(t, &messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
-	assertRouteConfig(t, &messages, []string{"testSvc1"}, [][]string{[]string{"/"}})
+	assertRouteConfig(t, messages, []route.Route{routeWithPathPrefix("testSvc1", "/")})
 }
 
-func assertRouteConfig(t *testing.T, messages *[]google_protobuf5.Any, clusters []string, routeList [][]string) bool {
-	var routes []route.Route
-	for i, cluster := range clusters {
-		for _, pathPrefix := range routeList[i] {
-			routes = append(routes, route.Route{
-				Match: route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Prefix{
-						Prefix: pathPrefix,
-					},
-				},
-				Action: &route.Route_Route{
-					Route: &route.RouteAction{
-						ClusterSpecifier: &route.RouteAction_Cluster{
-							Cluster: cluster,
-						},
-					},
-				},
-			})
-		}
-	}
+func assertRouteConfig(t *testing.T, messages []google_protobuf5.Any, routes []route.Route) {
 	routeConfig, _ := google_protobuf5.MarshalAny(&cp.RouteConfiguration{
 		Name: "local_route",
 		VirtualHosts: []route.VirtualHost{{
@@ -155,10 +142,48 @@ func assertRouteConfig(t *testing.T, messages *[]google_protobuf5.Any, clusters 
 			Routes:  routes,
 		}},
 	})
-	await(func() bool {
-		return IncludeElement(*messages, *routeConfig)
-	})
-	return assert.Contains(t, *messages, *routeConfig)
+	var publishedMessage google_protobuf5.Any
+	for _, message := range messages {
+		if message.TypeUrl == "type.googleapis.com/envoy.api.v2.RouteConfiguration" {
+			publishedMessage = message
+		}
+	}
+	assert.Equal(t, publishedMessage.Compare(routeConfig), 0)
+	assert.Contains(t, messages, *routeConfig)
+}
+
+func routeWithPathPrefix(name string, pathPrefix string) route.Route {
+	return route.Route{
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{
+				Prefix: pathPrefix,
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: name,
+				},
+			},
+		},
+	}
+}
+
+func routeWithRegexPath(name string, pathPrefix string) route.Route {
+	return route.Route{
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Regex{
+				Regex: pathPrefix,
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: name,
+				},
+			},
+		},
+	}
 }
 
 func assertCLA(t *testing.T, messages *[]google_protobuf5.Any, cluster string, port int) bool {

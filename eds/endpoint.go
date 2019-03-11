@@ -13,9 +13,10 @@ import (
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	eds "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gojektech/consul-envoy-xds/config"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
-	"github.com/gojektech/consul-envoy-xds/config"
+	"strings"
 )
 
 //Endpoint is an agent catalog service
@@ -26,6 +27,10 @@ type Endpoint interface {
 	WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error)
 }
 
+const (
+	regexPathIdentifier = "%regex:"
+)
+
 type service struct {
 	services            map[string]Service
 	agent               agent.ConsulAgent
@@ -33,8 +38,8 @@ type service struct {
 }
 
 func (s *service) serviceNames() []string {
-	names := []string{}
-	for k, _ := range s.services {
+	var names []string
+	for k := range s.services {
 		names = append(names, k)
 	}
 	return names
@@ -129,15 +134,11 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 	return plan, nil
 }
 
-func getRoutes(cluster string, pathPrefixes []string) []route.Route {
+func getRoutes(cluster string, whitelistPaths []string) []route.Route {
 	var routes []route.Route
-	for _, pathPrefix := range pathPrefixes {
+	for _, whitelistPath := range whitelistPaths {
 		routes = append(routes, route.Route{
-			Match: route.RouteMatch{
-				PathSpecifier: &route.RouteMatch_Prefix{
-					Prefix: pathPrefix,
-				},
-			},
+			Match: getPathSpecifier(whitelistPath),
 			Action: &route.Route_Route{
 				Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{
@@ -148,6 +149,21 @@ func getRoutes(cluster string, pathPrefixes []string) []route.Route {
 		})
 	}
 	return routes
+}
+
+func getPathSpecifier(whitelistPath string) route.RouteMatch {
+	if strings.HasPrefix(whitelistPath, regexPathIdentifier) {
+		regexPath := strings.Replace(whitelistPath, regexPathIdentifier, "", -1)
+		return route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Regex{
+				Regex: regexPath,
+			},
+		}
+	}
+	return route.RouteMatch{
+		PathSpecifier: &route.RouteMatch_Prefix{
+			Prefix: whitelistPath,
+		}}
 }
 
 func getRateLimits(httpRateLimitConfig *config.HTTPHeaderRateLimitConfig) []*route.RateLimit {
@@ -184,8 +200,8 @@ func NewEndpoint(services []Service, a agent.ConsulAgent, httpRateLimitConfig *c
 		svcMap[s.Name] = s
 	}
 	return &service{
-		services: svcMap,
-		agent:    a,
+		services:            svcMap,
+		agent:               a,
 		httpRateLimitConfig: httpRateLimitConfig,
 	}
 }
