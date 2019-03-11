@@ -9,10 +9,10 @@ import (
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gojektech/consul-envoy-xds/config"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/gojektech/consul-envoy-xds/config"
 )
 
 type MockConsulAgent struct {
@@ -36,7 +36,7 @@ func (m *MockConsulAgent) WatchParams() map[string]string {
 
 func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{[]*api.CatalogService{
+	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{{
 		{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234},
 		{ServiceName: "foo-service", ServiceAddress: "foo2", ServicePort: 1234}}},
 		nil)
@@ -50,7 +50,7 @@ func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 
 func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{[]*api.CatalogService{
+	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{{
 		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
 		nil)
 
@@ -85,7 +85,7 @@ func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
 
 func TestMultipleRouteConfiguration(t *testing.T) {
 	agent := &MockConsulAgent{}
-	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{[]*api.CatalogService{
+	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{{
 		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
 		nil)
 	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
@@ -124,11 +124,53 @@ func TestMultipleRouteConfiguration(t *testing.T) {
 	}}, virtualHosts[0].GetRoutes())
 }
 
+func TestMultipleRouteConfigurationWithRegexPath(t *testing.T) {
+	agent := &MockConsulAgent{}
+	agent.On("CatalogServiceEndpoints", []string{"foo"}).Return([][]*api.CatalogService{{
+		{ServiceName: "foo", ServiceAddress: "foo1", ServicePort: 1234}}},
+		nil)
+
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo", Whitelist: []string{"%regex:/hoo", "/bar"}}}, agent, httpRateLimitConfig)
+
+	routeConfig := endpoint.Routes()
+	virtualHosts := routeConfig[0].GetVirtualHosts()
+	assert.Equal(t, "local_route", routeConfig[0].GetName())
+	assert.Equal(t, []string{"*"}, virtualHosts[0].GetDomains())
+	assert.ElementsMatch(t, []route.Route{{
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Regex{
+				Regex: "/hoo",
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: "foo",
+				},
+			},
+		},
+	}, {
+		Match: route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{
+				Prefix: "/bar",
+			},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: "foo",
+				},
+			},
+		},
+	}}, virtualHosts[0].GetRoutes())
+}
+
 func TestShouldHaveCLAUsingAgentCatalogServiceEndpoints(t *testing.T) {
 	agent := &MockConsulAgent{}
 	agent.On("Locality").Return(&cpcore.Locality{Region: "foo-region"})
 	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{
-		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}},
+		{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}}},
 		nil,
 	)
 	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
@@ -161,7 +203,7 @@ func TestShouldSetEndpointWatchPlanHandler(t *testing.T) {
 	agent := &MockConsulAgent{}
 	agent.On("Locality").Return(&cpcore.Locality{Region: "foo-region"})
 	agent.On("CatalogServiceEndpoints", []string{"foo-service"}).Return([][]*api.CatalogService{
-		[]*api.CatalogService{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}},
+		{{ServiceName: "foo-service", ServiceAddress: "foo1", ServicePort: 1234}, {ServiceAddress: "foo2", ServicePort: 1234}},
 	}, nil)
 
 	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
