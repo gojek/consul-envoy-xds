@@ -201,3 +201,12 @@ admin:
   address:
     socket_address: { address: 127.0.0.1, port_value: 9901 }
 ```
+
+#### Enable Health Check Filter
+
+Example config to enable health check filter
+```
+ENABLE_HEALTH_CHECK_CATALOG_SVC: true
+```
+
+Only discover catalog service endpoints with health check status `passed`

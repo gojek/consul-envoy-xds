@@ -35,6 +35,7 @@ type service struct {
 	services            map[string]Service
 	agent               agent.ConsulAgent
 	httpRateLimitConfig *config.HTTPHeaderRateLimitConfig
+	enableHealthCheck   bool
 }
 
 func (s *service) serviceNames() []string {
@@ -54,7 +55,7 @@ func (s *service) getLbEndpoints(services []*api.CatalogService) []eds.LbEndpoin
 }
 
 func (s *service) CLA() []*cp.ClusterLoadAssignment {
-	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	serviceList, _ := s.getCatalogServiceEndpoints(s.enableHealthCheck)
 	log.Printf("discovered services from consul catalog for EDS: %v", serviceList)
 
 	var cLAs []*cp.ClusterLoadAssignment
@@ -76,7 +77,7 @@ func (s *service) CLA() []*cp.ClusterLoadAssignment {
 }
 
 func (s *service) Clusters() []*cp.Cluster {
-	serviceList, _ := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	serviceList, _ := s.getCatalogServiceEndpoints(s.enableHealthCheck)
 	log.Printf("discovered services from consul catalog for CDS: %v", serviceList)
 
 	var clusters []*cp.Cluster
@@ -132,6 +133,15 @@ func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
 		publish(&pubsub.Event{CLA: s.CLA(), Clusters: s.Clusters(), Routes: s.Routes()})
 	}
 	return plan, nil
+}
+
+func (s *service) getCatalogServiceEndpoints(enableHealthCheck bool) ([][]*api.CatalogService, error) {
+	if enableHealthCheck {
+		healthCheckCatalogSvc, err := s.agent.HealthCheckCatalogServiceEndpoints(s.serviceNames()...)
+		return healthCheckCatalogSvc, err
+	}
+	catalogSvc, err := s.agent.CatalogServiceEndpoints(s.serviceNames()...)
+	return catalogSvc, err
 }
 
 func getRoutes(cluster string, whitelistPaths []string) []route.Route {
@@ -194,7 +204,7 @@ func getHTTPHeaderRateLimit(httpRateLimitConfig *config.HTTPHeaderRateLimitConfi
 }
 
 //NewEndpoint creates an ServiceEndpoint representation
-func NewEndpoint(services []Service, a agent.ConsulAgent, httpRateLimitConfig *config.HTTPHeaderRateLimitConfig) Endpoint {
+func NewEndpoint(services []Service, a agent.ConsulAgent, httpRateLimitConfig *config.HTTPHeaderRateLimitConfig, enableHealthCheck bool) Endpoint {
 	svcMap := map[string]Service{}
 	for _, s := range services {
 		svcMap[s.Name] = s
@@ -203,5 +213,6 @@ func NewEndpoint(services []Service, a agent.ConsulAgent, httpRateLimitConfig *c
 		services:            svcMap,
 		agent:               a,
 		httpRateLimitConfig: httpRateLimitConfig,
+		enableHealthCheck:   enableHealthCheck,
 	}
 }

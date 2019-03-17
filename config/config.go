@@ -78,3 +78,7 @@ func (cfg *Config) WhitelistedRoutes(svc string) []string {
 	whitelist := cfg.GetOptionalValue(strings.ToUpper(canonicalName)+"_WHITELISTED_ROUTES", "/")
 	return strings.Split(whitelist, ",")
 }
+
+func (cfg *Config) EnableHealthCheckCatalogService() bool {
+	return cfg.GetFeature("ENABLE_HEALTH_CHECK_CATALOG_SVC")
+}
