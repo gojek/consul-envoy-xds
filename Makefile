@@ -51,7 +51,7 @@ lint:
 	done
 
 test: compile
-	ENVIRONMENT=test go test $(UNIT_TEST_PACKAGES) -p=1
+	ENVIRONMENT=test go test $(UNIT_TEST_PACKAGES) -p=1 -run W
 
 test-coverage: compile
 	@echo "mode: count" > out/coverage-all.out
