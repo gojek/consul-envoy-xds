@@ -119,8 +119,13 @@ func (s *service) Routes() []*cp.RouteConfiguration {
 }
 
 func (s *service) WatchPlan(publish func(*pubsub.Event)) (*watch.Plan, error) {
+	watchType := "services"
+	if s.enableHealthCheck {
+		watchType = "checks"
+	}
+
 	plan, err := watch.Parse(map[string]interface{}{
-		"type":       "services",
+		"type":       watchType,
 		"datacenter": s.agent.WatchParams()["datacenter"],
 		"token":      s.agent.WatchParams()["token"],
 	})
