@@ -2,6 +2,8 @@ package app_test
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -82,6 +84,87 @@ func TestPushToEnvoyWhenConsulWatchTriggers(t *testing.T) {
 		routeWithRegexPath("testSvc1", "/bar"),
 		routeWithRegexPath("testSvc2", "/hoo"),
 		routeWithPathPrefix("testSvc2", "/car"),
+	}
+	assertRouteConfig(t, messages, expectedRoutes)
+}
+
+func TestPushToEnvoyWhenConsulWatchTriggersWhenHealthCheckEnabled(t *testing.T) {
+	ports, _ := freeport.Free(1)
+	xdsPort := ports[0]
+
+	consulSvr, consulClient := agent.StartConsulTestServer()
+	defer consulSvr.Stop()
+
+	os.Setenv("PORT", strconv.Itoa(xdsPort))
+	defer os.Unsetenv("PORT")
+	_, port, _ := net.SplitHostPort(consulSvr.HTTPAddr)
+	os.Setenv("CONSUL_CLIENT_PORT", port)
+	defer os.Unsetenv("CONSUL_CLIENT_PORT")
+	os.Setenv("WATCHED_SERVICE", "testSvc1,testSvc2,testSvc3")
+	defer os.Unsetenv("WATCHED_SERVICE")
+	os.Setenv("TESTSVC1_WHITELISTED_ROUTES", "/foo,%regex:/bar")
+	defer os.Unsetenv("TESTSVC1_WHITELISTED_ROUTES")
+	os.Setenv("TESTSVC2_WHITELISTED_ROUTES", "%regex:/hoo,/car")
+	defer os.Unsetenv("TESTSVC2_WHITELISTED_ROUTES")
+	os.Setenv("TESTSVC3_WHITELISTED_ROUTES", "%regex:/koo,/kar")
+	defer os.Unsetenv("TESTSVC3_WHITELISTED_ROUTES")
+	os.Setenv("ENABLE_HEALTH_CHECK_CATALOG_SVC", "true")
+	defer os.Unsetenv("ENABLE_HEALTH_CHECK_CATALOG_SVC")
+
+
+	go app.Start()
+	defer app.Stop()
+	waitForAppToStart(xdsPort)
+
+	conn, _ := grpc.Dial("localhost:"+strconv.Itoa(xdsPort), grpc.WithInsecure())
+	defer conn.Close()
+	xDSClient := dis.NewAggregatedDiscoveryServiceClient(conn)
+	stream, err := xDSClient.StreamAggregatedResources(context.Background())
+	assert.NoError(t, err)
+
+	var messages []google_protobuf5.Any
+	go func() {
+		for {
+			res, err := stream.Recv()
+			if err != nil {
+				return
+			}
+			messages = append(messages, res.GetResources()...)
+		}
+	}()
+
+	http.HandleFunc("/ping",  func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("ping ping ping !!")
+		io.WriteString(w, "pong")
+	})
+
+	ts := httptest.NewServer(http.DefaultServeMux)
+	defer ts.Close()
+
+	pingURL := fmt.Sprintf("%s/ping", ts.URL)
+
+	testSvc1 := startHealthyTestSvc(consulClient, "testSvc1", pingURL)
+	defer testSvc1.Close()
+
+	testSvc2 := startHealthyTestSvc(consulClient, "testSvc2", pingURL)
+	defer testSvc2.Close()
+
+	testSvc3 := startTestSvc(consulClient, "testSvc3")
+	defer testSvc3.Close()
+
+	assertCluster(t, &messages, "testSvc1")
+	assertCLA(t, &messages, "testSvc1", testSvc1.Listener.Addr().(*net.TCPAddr).Port)
+	assertCluster(t, &messages, "testSvc2")
+	assertCLA(t, &messages, "testSvc2", testSvc2.Listener.Addr().(*net.TCPAddr).Port)
+	assertCluster(t, &messages, "testSvc3")
+	assertCLA(t, &messages, "testSvc3", testSvc3.Listener.Addr().(*net.TCPAddr).Port)
+	expectedRoutes := []route.Route{
+		routeWithPathPrefix("testSvc1", "/foo"),
+		routeWithRegexPath("testSvc1", "/bar"),
+		routeWithRegexPath("testSvc2", "/hoo"),
+		routeWithPathPrefix("testSvc2", "/car"),
+		routeWithRegexPath("testSvc3", "/koo"),
+		routeWithPathPrefix("testSvc3", "/kar"),
 	}
 	assertRouteConfig(t, messages, expectedRoutes)
 }
@@ -241,6 +324,23 @@ func startTestSvc(consulClient *consulapi.Client, name string) *httptest.Server 
 		ID:      name,
 		Address: "localhost",
 		Port:    testSvc.Listener.Addr().(*net.TCPAddr).Port,
+	})
+	return testSvc
+}
+
+func startHealthyTestSvc(consulClient *consulapi.Client, name, pingURL string) *httptest.Server {
+	testSvc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	consulClient.Agent().ServiceRegister(&consulapi.AgentServiceRegistration{
+		Name:    name,
+		ID:      name,
+		Address: "localhost",
+		Port:    testSvc.Listener.Addr().(*net.TCPAddr).Port,
+		Check: &consulapi.AgentServiceCheck{
+			Interval: "2s",
+			HTTP:     pingURL,
+		},
 	})
 	return testSvc
 }
