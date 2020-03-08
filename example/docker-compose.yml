@@ -1,0 +1,49 @@
+version: '2'
+services:
+
+  consul:
+    image: "consul"
+    hostname: "consul"
+    command: "agent -dev -client 0.0.0.0"
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53/udp"
+  registrator:
+    image: gliderlabs/registrator:latest
+    command: "-ip=127.0.0.1 -cleanup=true -resync=120 -ttl=60 -ttl-refresh=10 consul://consul:8500"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    depends_on:
+      - consul
+  greeter:
+    image: "gojektech/grpc-greeter"
+    hostname: "greeter"
+    depends_on:
+    - registrator
+    expose:
+      - "8443"
+    ports:
+      - "8444:8443"
+  consul-xds:
+    build:
+      context: ..
+    environment:
+      - CONSUL_CLIENT_HOST=consul
+      - WATCHED_SERVICE=greeter
+      - CONSUL_TOKEN=blah
+    expose:
+      - "8053"
+    ports:
+      - "8053:8053"
+  greeter-envoy:
+    image: envoyproxy/envoy:v1.7.0
+    command: "envoy -c /etc/envoy/envoy-xds.yaml"
+    volumes:
+      - ./envoy-xds.yaml:/etc/envoy/envoy-xds.yaml
+    expose:
+      - "8443"
+      - "9000"
+    ports:
+      - "8443:8443"
+      - "9000:9000"
