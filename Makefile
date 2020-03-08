@@ -16,18 +16,15 @@ setup:
 	go get -u golang.org/x/lint/golint
 	go get github.com/DATA-DOG/godog/cmd/godog
 	go get -u github.com/go-playground/overalls
-	go get -u github.com/golang/dep/cmd/dep
-	dep ensure
+	go mod verify
+	go mod download
 	mkdir -p out/
 	go build -o $(APP_EXECUTABLE)
 	cp application.yml.sample application.yml
 	@echo "consul-envoy-xds is setup!! Run make test to run tests"
 
 build-deps:
-	go install
-
-update-deps:
-	dep ensure -update
+	go mod download
 
 compile:
 	mkdir -p out/
