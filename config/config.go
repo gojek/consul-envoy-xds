@@ -19,6 +19,14 @@ type HTTPHeaderRateLimitConfig struct {
 	DescriptorKey string
 }
 
+type CorsConfig struct {
+	AllowOrigin   []string
+	AllowMethods  string
+	AllowHeaders  string
+	ExposeHeaders string
+	Enabled       bool
+}
+
 func Load() *Config {
 	cfg := &Config{}
 	cfg.LoadWithOptions(map[string]interface{}{"newrelic": false, "db": false})
@@ -81,4 +89,14 @@ func (cfg *Config) WhitelistedRoutes(svc string) []string {
 
 func (cfg *Config) EnableHealthCheckCatalogService() bool {
 	return cfg.GetFeature("ENABLE_HEALTH_CHECK_CATALOG_SVC")
+}
+
+func (cfg *Config) GetCorsConfig() *CorsConfig {
+	return &CorsConfig{
+		AllowOrigin:   strings.Split(cfg.GetOptionalValue("CORS_ALLOW_ORIGIN", ""), ","),
+		AllowMethods:  cfg.GetOptionalValue("CORS_ALLOW_METHODS", ""),
+		AllowHeaders:  cfg.GetOptionalValue("CORS_ALLOW_HEADERS", ""),
+		ExposeHeaders: cfg.GetOptionalValue("CORS_EXPOSE_HEADERS", ""),
+		Enabled:       cfg.GetFeature("ENABLE_CORS"),
+	}
 }
