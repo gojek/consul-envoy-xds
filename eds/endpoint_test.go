@@ -299,6 +299,20 @@ func TestShouldHaveCLAUsingAgentCatalogServiceEndpointsWhenHealthCheckEnabled(t 
 	assert.Equal(t, "socket_address:<address:\"foo2\" port_value:1234 > ", localityEndpoint.LbEndpoints[1].Endpoint.Address.String())
 }
 
+func TestShouldSetAgentBasedWatcherParamsInEndpointWatchPlanWhenHealthCheckEnabled(t *testing.T) {
+	agent := &MockConsulAgent{}
+	httpRateLimitConfig := &config.HTTPHeaderRateLimitConfig{IsEnabled: false}
+	endpoint := eds.NewEndpoint([]eds.Service{{Name: "foo-service", Whitelist: []string{"/"}}}, agent, httpRateLimitConfig, true)
+	agent.On("WatchParams").Return(map[string]string{"datacenter": "dc-foo-01", "token": "token-foo-01"})
+
+	plan, _ := endpoint.WatchPlan(func(*pubsub.Event) {
+	})
+
+	assert.Equal(t, "dc-foo-01", plan.Datacenter)
+	assert.Equal(t, "token-foo-01", plan.Token)
+	assert.Equal(t, "checks", plan.Type)
+}
+
 func TestShouldSetEndpointWatchPlanHandlerWhenHealthCheckEnabled(t *testing.T) {
 	agent := &MockConsulAgent{}
 	agent.On("Locality").Return(&cpcore.Locality{Region: "foo-region"})
