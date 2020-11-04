@@ -2,11 +2,17 @@ package config
 
 import (
 	"fmt"
-
 	"strings"
 
 	"github.com/gojek-engineering/goconfig"
 	"strconv"
+)
+
+const (
+	DefaultCircuitBreakerMaxConnections     = 1024
+	DefaultCircuitBreakerMaxRequests        = 1024
+	DefaultCircuitBreakerMaxPendingRequests = 1024
+	DefaultCircuitBreakerMaxRetries         = 3
 )
 
 type Config struct {
@@ -17,6 +23,13 @@ type HTTPHeaderRateLimitConfig struct {
 	IsEnabled     bool
 	HeaderName    string
 	DescriptorKey string
+}
+
+type CircuitBreakerConfig struct {
+	MaxConnections     uint32
+	MaxPendingRequests uint32
+	MaxRequests        uint32
+	MaxRetries         uint32
 }
 
 func Load() *Config {
@@ -74,11 +87,30 @@ func (cfg *Config) GetHTTPHeaderRateLimitConfig() *HTTPHeaderRateLimitConfig {
 }
 
 func (cfg *Config) WhitelistedRoutes(svc string) []string {
-	canonicalName := strings.Replace(svc, "-", "_", -1)
-	whitelist := cfg.GetOptionalValue(strings.ToUpper(canonicalName)+"_WHITELISTED_ROUTES", "/")
+	canonicalName := canonicalizeSvcName(svc)
+	whitelist := cfg.GetOptionalValue(canonicalName+"_WHITELISTED_ROUTES", "/")
 	return strings.Split(whitelist, ",")
 }
 
 func (cfg *Config) EnableHealthCheckCatalogService() bool {
 	return cfg.GetFeature("ENABLE_HEALTH_CHECK_CATALOG_SVC")
+}
+
+func (cfg *Config) CircuitBreakerConfig(svc string) CircuitBreakerConfig {
+	canonicalName := canonicalizeSvcName(svc)
+	maxConnections := uint32(cfg.GetOptionalIntValue(canonicalName+"_CIRCUIT_BREAKER_MAX_CONNECTIONS", DefaultCircuitBreakerMaxConnections))
+	maxPendingRequests := uint32(cfg.GetOptionalIntValue(canonicalName+"_CIRCUIT_BREAKER_MAX_PENDING_REQUESTS", DefaultCircuitBreakerMaxPendingRequests))
+	maxRequests := uint32(cfg.GetOptionalIntValue(canonicalName+"_CIRCUIT_BREAKER_MAX_REQUESTS", DefaultCircuitBreakerMaxRequests))
+	maxRetries := uint32(cfg.GetOptionalIntValue(canonicalName+"_CIRCUIT_BREAKER_MAX_RETRIES", DefaultCircuitBreakerMaxRetries))
+
+	return CircuitBreakerConfig{
+		MaxConnections:     maxConnections,
+		MaxPendingRequests: maxPendingRequests,
+		MaxRequests:        maxRequests,
+		MaxRetries:         maxRetries,
+	}
+}
+
+func canonicalizeSvcName(svc string) string {
+	return strings.ToUpper(strings.Replace(svc, "-", "_", -1))
 }

@@ -2,10 +2,12 @@ package eds
 
 import (
 	"fmt"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
+	"github.com/gojek/consul-envoy-xds/utils"
 	"time"
 
-	"github.com/gojektech/consul-envoy-xds/agent"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/agent"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 
 	"log"
 
@@ -13,7 +15,7 @@ import (
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	eds "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gojektech/consul-envoy-xds/config"
+	"github.com/gojek/consul-envoy-xds/config"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
 	"strings"
@@ -37,6 +39,8 @@ type service struct {
 	httpRateLimitConfig *config.HTTPHeaderRateLimitConfig
 	enableHealthCheck   bool
 }
+
+var _ Endpoint = &service{}
 
 func (s *service) serviceNames() []string {
 	var names []string
@@ -83,8 +87,11 @@ func (s *service) Clusters() []*cp.Cluster {
 	var clusters []*cp.Cluster
 	for _, services := range serviceList {
 		if len(services) > 0 {
+			serviceName := services[0].ServiceName
+			svc := s.services[serviceName]
+
 			clusters = append(clusters, &cp.Cluster{
-				Name:              services[0].ServiceName,
+				Name:              serviceName,
 				Type:              cp.Cluster_EDS,
 				ConnectTimeout:    1 * time.Second,
 				ProtocolSelection: cp.Cluster_USE_DOWNSTREAM_PROTOCOL,
@@ -94,6 +101,15 @@ func (s *service) Clusters() []*cp.Cluster {
 							Ads: &cpcore.AggregatedConfigSource{},
 						},
 					},
+				},
+				CircuitBreakers: &cluster.CircuitBreakers{
+					Thresholds: []*cluster.CircuitBreakers_Thresholds{{
+						cpcore.RoutingPriority_DEFAULT,
+						utils.Uint32Value(svc.CircuirBreakerConfig.MaxConnections),
+						utils.Uint32Value(svc.CircuirBreakerConfig.MaxPendingRequests),
+						utils.Uint32Value(svc.CircuirBreakerConfig.MaxRequests),
+						utils.Uint32Value(svc.CircuirBreakerConfig.MaxRetries),
+					}},
 				},
 			})
 		}

@@ -2,7 +2,7 @@ package eds
 
 import (
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 	"github.com/hashicorp/consul/watch"
 	"github.com/stretchr/testify/mock"
 )

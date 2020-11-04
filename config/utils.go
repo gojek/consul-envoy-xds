@@ -38,3 +38,60 @@ func checkKey(key string) {
 		log.Fatalf("%s key is not set", key)
 	}
 }
+
+type EnvVar struct {
+	Present bool
+	Key     string
+	Value   string
+}
+
+func NewEnvVar(key, value string) EnvVar {
+	return EnvVar{
+		Present: true,
+		Key:     key,
+		Value:   value,
+	}
+}
+
+func MissingEnvVar(key string) EnvVar {
+	return EnvVar{
+		Present: false,
+		Key:     key,
+	}
+}
+
+type EnvVarMutation struct {
+	previousValues []EnvVar
+}
+
+func (e EnvVarMutation) Rollback() {
+
+}
+
+func ApplyEnvVars(vars ...EnvVar) EnvVarMutation {
+	var oldEnvVars []EnvVar
+
+	for _, envVar := range vars {
+		oldValue, exists := os.LookupEnv(envVar.Key)
+
+		oldEnvVars = append(oldEnvVars, EnvVar{
+			Present: exists,
+			Key:     envVar.Key,
+			Value:   oldValue,
+		})
+
+		if envVar.Present {
+			Must(os.Setenv(envVar.Key, envVar.Value))
+		} else {
+			Must(os.Unsetenv(envVar.Key))
+		}
+	}
+
+	return EnvVarMutation{previousValues: oldEnvVars}
+}
+
+func Must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

@@ -3,7 +3,7 @@ package pubsub_test
 import (
 	"testing"
 
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	uuid "github.com/satori/go.uuid"

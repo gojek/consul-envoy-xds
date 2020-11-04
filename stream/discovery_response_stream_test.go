@@ -3,7 +3,7 @@ package stream_test
 import (
 	"testing"
 
-	"github.com/gojektech/consul-envoy-xds/stream"
+	"github.com/gojek/consul-envoy-xds/stream"
 
 	"strconv"
 	"time"

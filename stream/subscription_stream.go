@@ -5,8 +5,8 @@ import (
 	"log"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gojektech/consul-envoy-xds/eds"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/eds"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 )
 
 //SubscriptionStream is stream of stream of x discovery responses

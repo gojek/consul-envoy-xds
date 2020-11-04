@@ -1,15 +1,17 @@
 package eds_test
 
 import (
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
+	"github.com/gojek/consul-envoy-xds/utils"
 	"testing"
 
-	"github.com/gojektech/consul-envoy-xds/eds"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/eds"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	cpcore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gojektech/consul-envoy-xds/config"
+	"github.com/gojek/consul-envoy-xds/config"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -52,6 +54,14 @@ func TestShouldHaveClusterUsingAgentCatalogServiceEndpoints(t *testing.T) {
 
 	assert.Equal(t, "foo-service", clusters[0].Name)
 	assert.Equal(t, cp.Cluster_USE_DOWNSTREAM_PROTOCOL, clusters[0].ProtocolSelection)
+	circuitBreakers := cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{{
+		Priority:           cpcore.RoutingPriority_DEFAULT,
+		MaxConnections:     utils.Uint32Value(1024),
+		MaxPendingRequests: utils.Uint32Value(1024),
+		MaxRequests:        utils.Uint32Value(1024),
+		MaxRetries:         utils.Uint32Value(3),
+	}}}
+	assert.Equal(t, circuitBreakers, clusters[0].CircuitBreakers)
 }
 
 func TestShouldHaveAuthHeaderRateLimit(t *testing.T) {
