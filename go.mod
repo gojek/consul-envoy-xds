@@ -9,7 +9,6 @@ require (
 	github.com/gogo/googleapis v0.0.0-20180223154316-0cd9801be74a
 	github.com/gogo/protobuf v0.0.0-20171007142547-342cbe0a0415
 	github.com/gojek-engineering/goconfig v0.0.0-20171121145242-6012be80012d
-	github.com/gojektech/consul-envoy-xds v0.0.0-20190405094702-1389b6876cc8
 	github.com/golang/protobuf v1.3.2
 	github.com/hashicorp/consul v1.2.2
 	github.com/hashicorp/go-cleanhttp v0.0.0-20170211013415-3573b8b52aa7

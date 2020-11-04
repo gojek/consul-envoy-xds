@@ -2,7 +2,7 @@ package agent_test
 
 import (
 	"fmt"
-	"github.com/gojektech/consul-envoy-xds/agent"
+	"github.com/gojek/consul-envoy-xds/agent"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/testutil/retry"
 	"github.com/stretchr/testify/assert"
@@ -39,7 +39,7 @@ func TestShouldReturnServicesFromCatalog(t *testing.T) {
 
 func TestShouldReturnHealthCheckPassedServicesFromCatalog(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(w,"helo")
+		fmt.Println(w, "helo")
 	}))
 	defer ts.Close()
 
@@ -47,11 +47,11 @@ func TestShouldReturnHealthCheckPassedServicesFromCatalog(t *testing.T) {
 	defer consulSvr.Stop()
 
 	consulClient.Agent().ServiceRegister(&api.AgentServiceRegistration{Name: "foo", ID: "foo", Check: &api.AgentServiceCheck{
-		HTTP:      "invalidhost:8080",
+		HTTP:     "invalidhost:8080",
 		Interval: "1ms",
 	}})
 	consulClient.Agent().ServiceRegister(&api.AgentServiceRegistration{Name: "bar", ID: "bar", Check: &api.AgentServiceCheck{
-		HTTP:      ts.URL,
+		HTTP:     ts.URL,
 		Interval: "1ms",
 	}})
 

@@ -2,8 +2,8 @@ package stream
 
 import (
 	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gojektech/consul-envoy-xds/eds"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/eds"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 )
 
 //ConsulEDS is an implementation of envoy EDS grpc api via envoy go control plan api contract.

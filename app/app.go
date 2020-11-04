@@ -5,14 +5,14 @@ import (
 	"log"
 	"net"
 
-	"github.com/gojektech/consul-envoy-xds/config"
-	"github.com/gojektech/consul-envoy-xds/eds"
-	"github.com/gojektech/consul-envoy-xds/edswatch"
-	"github.com/gojektech/consul-envoy-xds/pubsub"
+	"github.com/gojek/consul-envoy-xds/config"
+	"github.com/gojek/consul-envoy-xds/eds"
+	"github.com/gojek/consul-envoy-xds/edswatch"
+	"github.com/gojek/consul-envoy-xds/pubsub"
 
 	cp "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
-	"github.com/gojektech/consul-envoy-xds/agent"
-	"github.com/gojektech/consul-envoy-xds/stream"
+	"github.com/gojek/consul-envoy-xds/agent"
+	"github.com/gojek/consul-envoy-xds/stream"
 	"google.golang.org/grpc"
 )
 
@@ -26,8 +26,9 @@ func Start() {
 	var services []eds.Service
 	for _, s := range svcCfg {
 		services = append(services, eds.Service{
-			Name:      s,
-			Whitelist: cfg.WhitelistedRoutes(s),
+			Name:                 s,
+			Whitelist:            cfg.WhitelistedRoutes(s),
+			CircuirBreakerConfig: cfg.CircuitBreakerConfig(s),
 		})
 	}
 
